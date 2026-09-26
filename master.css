@@ -25,16 +25,17 @@ body {
   line-height: 1.5;
 }
 
-/* 2. SONG HEADER */
+/* 2. SONG HEADER (CENTER ALIGNED & PURPLE TITLE) */
 .song-header-container {
   margin-bottom: 20px;
+  text-align: center;
 }
 
 .song-title {
   font-size: calc(1.75rem * var(--base-font-scale));
   font-weight: 700;
   margin: 0 0 4px 0;
-  color: var(--text-color);
+  color: var(--primary-color);
 }
 
 .song-artist {
@@ -50,6 +51,7 @@ body {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  justify-content: center;
   margin-bottom: 20px;
   padding: 10px;
   background: #f8f9fa;
@@ -131,6 +133,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: center;
   margin-top: 12px;
 }
 
@@ -170,7 +173,7 @@ body {
 .lyrics-container {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0; /* Zero gap so adjacent highlighted lines connect seamlessly */
 }
 
 .section-header {
@@ -188,7 +191,7 @@ body {
   gap: 12px;
   padding: 4px 8px;
   border-radius: 6px;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   transition: opacity 0.25s ease, background-color 0.25s ease, border-radius 0.2s ease;
 }
 
@@ -253,31 +256,37 @@ body {
 /* 8. CONTIGUOUS MEMBER HIGHLIGHTING */
 .line-block.member-highlighted {
   background-color: rgba(142, 36, 170, 0.12);
-  box-shadow: inset 3px 0 0 var(--primary-color);
+  box-shadow: inset 3px 0 0 var(--primary-color, #8e24aa);
   opacity: 1 !important;
 }
 
 /* Merge consecutive matching lines into a seamless block */
 .line-block.member-highlighted.highlight-start {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  margin-bottom: 0;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 2px !important;
 }
 
 .line-block.member-highlighted.highlight-middle {
-  border-radius: 0;
-  margin-top: 0;
-  margin-bottom: 0;
+  border-radius: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
 }
 
 .line-block.member-highlighted.highlight-end {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  margin-top: 0;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 4px !important;
+  padding-top: 2px !important;
 }
 
 .line-block.member-highlighted.highlight-only {
-  border-radius: 6px;
+  border-radius: 6px !important;
+  margin-bottom: 4px !important;
 }
 
 .line-block.member-dimmed {
