@@ -298,3 +298,45 @@ body {
   height: 60px; width: 100%; border-top: 1px dashed #f1f3f4; margin-top: 40px;
 }
 .hidden { display: none !important; }
+
+/* Interactive Member Highlighting */
+.member-key-item {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.member-key-item:hover {
+  background: #f3e5f5;
+  border-color: #8e24aa;
+}
+
+.member-key-item.active {
+  background: #8e24aa;
+  color: #ffffff;
+  border-color: #8e24aa;
+  box-shadow: 0 2px 6px rgba(142, 36, 170, 0.3);
+}
+
+.member-key-item.active .member-key-emoji {
+  transform: scale(1.15);
+  display: inline-block;
+}
+
+.line-block {
+  transition: opacity 0.25s ease, background-color 0.25s ease, padding 0.25s ease;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+/* Highlighted state for matching member lines */
+.line-block.member-highlighted {
+  background-color: rgba(142, 36, 170, 0.12);
+  box-shadow: inset 3px 0 0 #8e24aa;
+  opacity: 1 !important;
+}
+
+/* Soft dimming for non-matching lines so all lyrics remain readable */
+.line-block.member-dimmed {
+  opacity: 0.4;
+}
