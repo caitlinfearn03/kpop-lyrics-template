@@ -240,7 +240,7 @@ function shiftNote(note, steps) {
   return scaleSharps[newIndex];
 }
 
-// 6. MEMBER HIGHLIGHT FILTERING ENGINE
+// 6. MEMBER HIGHLIGHT FILTERING ENGINE WITH CONTIGUOUS GROUPING
 function toggleMemberFilter(emoji) {
   if (activeMemberFilter === emoji) {
     activeMemberFilter = null; 
@@ -260,17 +260,46 @@ function toggleMemberFilter(emoji) {
 }
 
 function applyMemberFilter() {
-  const blocks = document.querySelectorAll('.line-block');
-  blocks.forEach(block => {
+  const blocks = Array.from(document.querySelectorAll('.line-block'));
+  
+  // Evaluate highlight match state for each block
+  const matchStates = blocks.map(block => {
     const memberAttr = block.getAttribute('data-member') || "";
-    block.classList.remove('member-highlighted', 'member-dimmed');
+    if (!activeMemberFilter) return false;
+    const isAll = memberAttr.toUpperCase().includes("ALL");
+    const isMatch = memberAttr.includes(activeMemberFilter);
+    return isMatch || isAll;
+  });
+
+  // Assign classes to merge consecutive matching blocks seamlessly
+  blocks.forEach((block, i) => {
+    block.classList.remove(
+      'member-highlighted', 
+      'member-dimmed', 
+      'highlight-start', 
+      'highlight-middle', 
+      'highlight-end', 
+      'highlight-only'
+    );
 
     if (activeMemberFilter) {
-      const isAll = memberAttr.toUpperCase().includes("ALL");
-      const isMatch = memberAttr.includes(activeMemberFilter);
+      const isHighlighted = matchStates[i];
 
-      if (isMatch || isAll) {
+      if (isHighlighted) {
         block.classList.add('member-highlighted');
+
+        const prevMatch = i > 0 && matchStates[i - 1];
+        const nextMatch = i < blocks.length - 1 && matchStates[i + 1];
+
+        if (!prevMatch && nextMatch) {
+          block.classList.add('highlight-start');
+        } else if (prevMatch && nextMatch) {
+          block.classList.add('highlight-middle');
+        } else if (prevMatch && !nextMatch) {
+          block.classList.add('highlight-end');
+        } else {
+          block.classList.add('highlight-only');
+        }
       } else {
         block.classList.add('member-dimmed');
       }
@@ -287,7 +316,7 @@ function buildLyrics() {
 
   let hasMember = false, hasChords = false, hasHangul = false, hasRoman = false, hasEnglish = false;
   let keyString = "";
-  let currentMember = ""; // Stores active member across sequential lyric blocks
+  let currentMember = "";
 
   const blocks = songData.trim().split(/\n\s*\n/);
 
@@ -332,7 +361,6 @@ function buildLyrics() {
       lyricsContainer.appendChild(sectionDiv);
     }
 
-    // Update active member if M: was specified, otherwise inherit from previous block
     if (member) {
       currentMember = member;
     } else if (hangul || roman || english) {
