@@ -288,6 +288,8 @@ function buildLyrics() {
 
   let hasMember = false, hasChords = false, hasHangul = false, hasRoman = false, hasEnglish = false;
   let keyString = "";
+  let lastMember = ""; // Tracks member assignment across multi-line passages
+
   const blocks = songData.trim().split(/\n\s*\n/);
 
   blocks.forEach(blockStr => {
@@ -331,7 +333,15 @@ function buildLyrics() {
       lyricsContainer.appendChild(sectionDiv);
     }
 
-    if (member || hangul || roman || english) {
+    if (hangul || roman || english) {
+      // Inherit previous line's member if no M: tag is explicitly provided
+      if (member) {
+        lastMember = member;
+      } else if (lastMember) {
+        member = lastMember;
+        hasMember = true;
+      }
+
       const blockDiv = document.createElement('div');
       blockDiv.className = 'line-block';
       if (member) blockDiv.setAttribute('data-member', member);
@@ -416,7 +426,7 @@ function updateView() {
     if (memberOn) keyContainer.classList.remove('hidden');
     else {
       keyContainer.classList.add('hidden');
-      if (activeMemberFilter) toggleMemberFilter(activeMemberFilter); // Reset filter if member column toggled off
+      if (activeMemberFilter) toggleMemberFilter(activeMemberFilter);
     }
   }
 
