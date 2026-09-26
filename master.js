@@ -1,52 +1,23 @@
-function applyMemberFilter() {
-  const blocks = Array.from(document.querySelectorAll('.line-block'));
+function startScrollEngine() {
+  if (scrollInterval) clearInterval(scrollInterval);
+  
+  // Speeds >= 1 decrease interval time (faster)
+  // Speeds < 1 increase interval time (slower)
+  const baseInterval = scrollSpeed >= 1 
+    ? 60 / scrollSpeed 
+    : 60 * (2 - scrollSpeed);
 
-  // Step 1: Mark matching state on dataset attributes
-  blocks.forEach(block => {
-    const memberAttr = block.getAttribute('data-member') || "";
-    let isMatch = false;
-    if (activeMemberFilter) {
-      const isAll = memberAttr.toUpperCase().includes("ALL");
-      isMatch = memberAttr.includes(activeMemberFilter) || isAll;
+  scrollInterval = setInterval(() => {
+    window.scrollBy(0, 1);
+    if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 2) {
+      toggleAutoScroll();
     }
-    block.dataset.isMatch = isMatch ? "true" : "false";
-  });
+  }, baseInterval);
+}
 
-  // Step 2: Check immediate DOM siblings to apply border & radius classes
-  blocks.forEach(block => {
-    block.classList.remove(
-      'member-highlighted',
-      'member-dimmed',
-      'highlight-start',
-      'highlight-middle',
-      'highlight-end',
-      'highlight-only'
-    );
-
-    if (activeMemberFilter) {
-      const isMatch = block.dataset.isMatch === "true";
-
-      if (isMatch) {
-        block.classList.add('member-highlighted');
-
-        const prevSib = block.previousElementSibling;
-        const nextSib = block.nextElementSibling;
-
-        const prevMatch = prevSib && prevSib.classList.contains('line-block') && prevSib.dataset.isMatch === "true";
-        const nextMatch = nextSib && nextSib.classList.contains('line-block') && nextSib.dataset.isMatch === "true";
-
-        if (!prevMatch && nextMatch) {
-          block.classList.add('highlight-start');
-        } else if (prevMatch && nextMatch) {
-          block.classList.add('highlight-middle');
-        } else if (prevMatch && !nextMatch) {
-          block.classList.add('highlight-end');
-        } else {
-          block.classList.add('highlight-only');
-        }
-      } else {
-        block.classList.add('member-dimmed');
-      }
-    }
-  });
+function changeScrollSpeed(amount) {
+  // Allows speed to adjust from -5 (very slow) to 10 (very fast)
+  scrollSpeed = Math.max(-5, Math.min(10, scrollSpeed + amount));
+  document.getElementById('scrollSpeedLabel').textContent = scrollSpeed;
+  if (isScrolling) startScrollEngine(); 
 }
