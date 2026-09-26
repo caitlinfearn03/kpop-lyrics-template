@@ -243,12 +243,11 @@ function shiftNote(note, steps) {
 // 6. MEMBER HIGHLIGHT FILTERING ENGINE
 function toggleMemberFilter(emoji) {
   if (activeMemberFilter === emoji) {
-    activeMemberFilter = null; // Toggle off if clicked again
+    activeMemberFilter = null; 
   } else {
     activeMemberFilter = emoji;
   }
 
-  // Update key pills UI
   document.querySelectorAll('.member-key-item').forEach(item => {
     if (activeMemberFilter && item.getAttribute('data-emoji') === activeMemberFilter) {
       item.classList.add('active');
@@ -288,7 +287,7 @@ function buildLyrics() {
 
   let hasMember = false, hasChords = false, hasHangul = false, hasRoman = false, hasEnglish = false;
   let keyString = "";
-  let lastMember = ""; // Tracks member assignment across multi-line passages
+  let currentMember = ""; // Stores active member across sequential lyric blocks
 
   const blocks = songData.trim().split(/\n\s*\n/);
 
@@ -304,7 +303,7 @@ function buildLyrics() {
       else if (line.startsWith('Artist:')) artist = line.replace('Artist:', '').trim();
       else if (line.startsWith('Key:') || line.startsWith('K:')) keyString = line.replace(/^(Key:|K:)/, '').trim();
       else if (line.startsWith('S:')) section = line.replace('S:', '').trim();
-      else if (line.startsWith('M:')) { member = line.replace('M:', '').trim(); hasMember = true; }
+      else if (line.startsWith('M:')) { member = line.replace('M:', '').trim(); }
       else if (line.startsWith('H:')) { hangul = line.replace('H:', '').trim(); hasHangul = true; }
       else if (line.startsWith('R:')) { roman = line.replace('R:', '').trim(); hasRoman = true; }
       else if (line.startsWith('E:')) { english = line.replace('E:', '').trim(); hasEnglish = true; }
@@ -333,15 +332,16 @@ function buildLyrics() {
       lyricsContainer.appendChild(sectionDiv);
     }
 
-    if (hangul || roman || english) {
-      // Inherit previous line's member if no M: tag is explicitly provided
-      if (member) {
-        lastMember = member;
-      } else if (lastMember) {
-        member = lastMember;
-        hasMember = true;
-      }
+    // Update active member if M: was specified, otherwise inherit from previous block
+    if (member) {
+      currentMember = member;
+    } else if (hangul || roman || english) {
+      member = currentMember;
+    }
 
+    if (member) hasMember = true;
+
+    if (member || hangul || roman || english) {
       const blockDiv = document.createElement('div');
       blockDiv.className = 'line-block';
       if (member) blockDiv.setAttribute('data-member', member);
