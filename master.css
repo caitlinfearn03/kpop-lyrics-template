@@ -143,6 +143,39 @@ body {
 }
 .btn-scroll-toggle.active { background: #d32f2f; }
 
+/* Member Emoji Key Styles */
+.member-key-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #f8f0fc;
+  border-radius: 20px;
+  border: 1px solid #e1bee7;
+  transition: all 0.2s ease;
+}
+
+.member-key-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6a1b9a;
+  background: #ffffff;
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid #d1c4e9;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.member-key-emoji {
+  font-size: 15px;
+}
+
 .chord-modal {
   position: fixed;
   top: 50%;
