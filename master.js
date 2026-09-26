@@ -52,6 +52,7 @@ let currentFontScale = 1.0;
 let scrollInterval = null;
 let isScrolling = false;
 let scrollSpeed = 1;
+let activeMemberFilter = null;
 
 const scaleSharps = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const scaleFlats  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
@@ -239,7 +240,46 @@ function shiftNote(note, steps) {
   return scaleSharps[newIndex];
 }
 
-// 6. SONG DATA PARSER & DOM BUILDER
+// 6. MEMBER HIGHLIGHT FILTERING ENGINE
+function toggleMemberFilter(emoji) {
+  if (activeMemberFilter === emoji) {
+    activeMemberFilter = null; // Toggle off if clicked again
+  } else {
+    activeMemberFilter = emoji;
+  }
+
+  // Update key pills UI
+  document.querySelectorAll('.member-key-item').forEach(item => {
+    if (activeMemberFilter && item.getAttribute('data-emoji') === activeMemberFilter) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+
+  applyMemberFilter();
+}
+
+function applyMemberFilter() {
+  const blocks = document.querySelectorAll('.line-block');
+  blocks.forEach(block => {
+    const memberAttr = block.getAttribute('data-member') || "";
+    block.classList.remove('member-highlighted', 'member-dimmed');
+
+    if (activeMemberFilter) {
+      const isAll = memberAttr.toUpperCase().includes("ALL");
+      const isMatch = memberAttr.includes(activeMemberFilter);
+
+      if (isMatch || isAll) {
+        block.classList.add('member-highlighted');
+      } else {
+        block.classList.add('member-dimmed');
+      }
+    }
+  });
+}
+
+// 7. SONG DATA PARSER & DOM BUILDER
 function buildLyrics() {
   const lyricsContainer = document.getElementById('lyricsContainer');
   const headerContainer = document.getElementById('headerContainer');
@@ -339,6 +379,8 @@ function buildLyrics() {
 
       const keyItem = document.createElement('span');
       keyItem.className = 'member-key-item';
+      keyItem.setAttribute('data-emoji', emoji);
+      keyItem.onclick = function() { toggleMemberFilter(emoji); };
       keyItem.innerHTML = `<span class="member-key-emoji">${emoji}</span> ${name}`;
       keyContainer.appendChild(keyItem);
     });
@@ -361,7 +403,7 @@ function configurePillVisibility(elementId, isPresent) {
   else { checkbox.checked = false; pillWrapper.classList.add('hidden'); }
 }
 
-// 7. VIEW CONTROLLER
+// 8. VIEW CONTROLLER
 function updateView() {
   const memberOn = document.getElementById('showMember').checked;
   const chordsOn = document.getElementById('showChords').checked;
@@ -372,7 +414,10 @@ function updateView() {
   const keyContainer = document.getElementById('memberKeyContainer');
   if (keyContainer) {
     if (memberOn) keyContainer.classList.remove('hidden');
-    else keyContainer.classList.add('hidden');
+    else {
+      keyContainer.classList.add('hidden');
+      if (activeMemberFilter) toggleMemberFilter(activeMemberFilter); // Reset filter if member column toggled off
+    }
   }
 
   const transWidget = document.getElementById('transposeWidget');
@@ -436,6 +481,7 @@ function updateView() {
   });
 
   updateMemberColumn(memberOn);
+  applyMemberFilter();
 }
 
 function updateMemberColumn(showMember) {
@@ -477,6 +523,6 @@ function alignBadgeToFirstLyric(block, badge) {
   }
 }
 
-// 8. INITIALIZE APPLICATION
+// 9. INITIALIZE APPLICATION
 buildLyrics();
 updateView();
