@@ -1,3 +1,6 @@
+/* master.js */
+
+// 1. INJECT THE HTML FRAMEWORK
 document.body.insertAdjacentHTML('afterbegin', `
 <div class="song-header-container" id="headerContainer"></div>
 
@@ -43,6 +46,7 @@ document.body.insertAdjacentHTML('afterbegin', `
 </div>
 `);
 
+// 2. STATE & CONFIGURATION
 let currentKeyOffset = 0;
 let currentFontScale = 1.0;
 let scrollInterval = null;
@@ -58,6 +62,7 @@ const chordFormulae = {
   'dim': [0, 3, 6], 'aug': [0, 4, 8], '6': [0, 4, 7, 9], 'm6': [0, 3, 7, 9]
 };
 
+// 3. FONT & SCROLL FUNCTIONS
 function changeFontSize(amount) {
   currentFontScale = Math.max(0.6, Math.min(2.0, currentFontScale + amount));
   document.documentElement.style.setProperty('--base-font-scale', currentFontScale);
@@ -97,6 +102,7 @@ function changeScrollSpeed(amount) {
   if (isScrolling) startScrollEngine(); 
 }
 
+// 4. CHORD DIAGRAM MODAL
 function showChordDiagram(chordName) {
   if (!chordName) return;
   const modal = document.getElementById('chordModal');
@@ -161,6 +167,7 @@ function closeChordModal() {
   setTimeout(() => modal.style.display = 'none', 200);
 }
 
+// 5. CHORD PROCESSING & TRANSPOSITION
 function processInlineChords(text) {
   if (!text) return "";
   
@@ -207,6 +214,32 @@ function stripChordTags(htmlStr) {
   return doc.body.textContent || "";
 }
 
+function changeKey(steps) {
+  currentKeyOffset += steps;
+  document.getElementById('keyOffset').textContent = (currentKeyOffset > 0 ? '+' : '') + currentKeyOffset;
+  const chordElements = document.querySelectorAll('.inline-chord[data-original-chord]');
+  chordElements.forEach(el => {
+    const original = el.getAttribute('data-original-chord');
+    el.textContent = transposeLine(original, currentKeyOffset);
+  });
+}
+
+function transposeLine(text, steps) {
+  if (steps === 0) return text;
+  const chordRegex = /[A-G][b#]?/g;
+  return text.replace(chordRegex, (match) => shiftNote(match, steps));
+}
+
+function shiftNote(note, steps) {
+  let index = scaleSharps.indexOf(note);
+  if (index === -1) index = scaleFlats.indexOf(note);
+  if (index === -1) return note;
+  let newIndex = (index + steps) % 12;
+  if (newIndex < 0) newIndex += 12;
+  return scaleSharps[newIndex];
+}
+
+// 6. SONG DATA PARSER & DOM BUILDER
 function buildLyrics() {
   const lyricsContainer = document.getElementById('lyricsContainer');
   const headerContainer = document.getElementById('headerContainer');
@@ -214,6 +247,7 @@ function buildLyrics() {
   if (typeof songData === 'undefined') return;
 
   let hasMember = false, hasChords = false, hasHangul = false, hasRoman = false, hasEnglish = false;
+  let keyString = "";
   const blocks = songData.trim().split(/\n\s*\n/);
 
   blocks.forEach(blockStr => {
@@ -226,6 +260,7 @@ function buildLyrics() {
       const line = l.trim();
       if (line.startsWith('Title:')) title = line.replace('Title:', '').trim();
       else if (line.startsWith('Artist:')) artist = line.replace('Artist:', '').trim();
+      else if (line.startsWith('Key:') || line.startsWith('K:')) keyString = line.replace(/^(Key:|K:)/, '').trim();
       else if (line.startsWith('S:')) section = line.replace('S:', '').trim();
       else if (line.startsWith('M:')) { member = line.replace('M:', '').trim(); hasMember = true; }
       else if (line.startsWith('H:')) { hangul = line.replace('H:', '').trim(); hasHangul = true; }
@@ -276,6 +311,41 @@ function buildLyrics() {
     }
   });
 
+  // Render Member Key Legend if provided
+  if (keyString) {
+    const keyContainer = document.createElement('div');
+    keyContainer.className = 'member-key-container';
+    keyContainer.id = 'memberKeyContainer';
+
+    const items = keyString.split(/[\|,;]/);
+    items.forEach(item => {
+      const trimmed = item.trim();
+      if (!trimmed) return;
+
+      const parts = trimmed.split('=');
+      let emoji = "", name = "";
+      if (parts.length === 2) {
+        emoji = parts[0].trim();
+        name = parts[1].trim();
+      } else {
+        const firstSpaceIndex = trimmed.search(/\s/);
+        if (firstSpaceIndex !== -1) {
+          emoji = trimmed.substring(0, firstSpaceIndex).trim();
+          name = trimmed.substring(firstSpaceIndex).trim();
+        } else {
+          emoji = trimmed;
+        }
+      }
+
+      const keyItem = document.createElement('span');
+      keyItem.className = 'member-key-item';
+      keyItem.innerHTML = `<span class="member-key-emoji">${emoji}</span> ${name}`;
+      keyContainer.appendChild(keyItem);
+    });
+
+    headerContainer.appendChild(keyContainer);
+  }
+
   configurePillVisibility('showMember', hasMember);
   configurePillVisibility('showChords', hasChords);
   configurePillVisibility('showHangul', hasHangul);
@@ -291,37 +361,19 @@ function configurePillVisibility(elementId, isPresent) {
   else { checkbox.checked = false; pillWrapper.classList.add('hidden'); }
 }
 
-function changeKey(steps) {
-  currentKeyOffset += steps;
-  document.getElementById('keyOffset').textContent = (currentKeyOffset > 0 ? '+' : '') + currentKeyOffset;
-  const chordElements = document.querySelectorAll('.inline-chord[data-original-chord]');
-  chordElements.forEach(el => {
-    const original = el.getAttribute('data-original-chord');
-    el.textContent = transposeLine(original, currentKeyOffset);
-  });
-}
-
-function transposeLine(text, steps) {
-  if (steps === 0) return text;
-  const chordRegex = /[A-G][b#]?/g;
-  return text.replace(chordRegex, (match) => shiftNote(match, steps));
-}
-
-function shiftNote(note, steps) {
-  let index = scaleSharps.indexOf(note);
-  if (index === -1) index = scaleFlats.indexOf(note);
-  if (index === -1) return note;
-  let newIndex = (index + steps) % 12;
-  if (newIndex < 0) newIndex += 12;
-  return scaleSharps[newIndex];
-}
-
+// 7. VIEW CONTROLLER
 function updateView() {
   const memberOn = document.getElementById('showMember').checked;
   const chordsOn = document.getElementById('showChords').checked;
   const hangulOn = document.getElementById('showHangul').checked;
   const romanOn = document.getElementById('showRoman').checked;
   const englishOn = document.getElementById('showEnglish').checked;
+
+  const keyContainer = document.getElementById('memberKeyContainer');
+  if (keyContainer) {
+    if (memberOn) keyContainer.classList.remove('hidden');
+    else keyContainer.classList.add('hidden');
+  }
 
   const transWidget = document.getElementById('transposeWidget');
   if (chordsOn && !transWidget.parentNode.querySelector('#showChords').closest('.toggle-pill').classList.contains('hidden')) {
@@ -425,5 +477,6 @@ function alignBadgeToFirstLyric(block, badge) {
   }
 }
 
+// 8. INITIALIZE APPLICATION
 buildLyrics();
 updateView();
