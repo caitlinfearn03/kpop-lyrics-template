@@ -7,6 +7,8 @@ let scrollInterval = null;
 let isScrolling = false;
 let scrollSpeed = 1;
 let activeMemberFilter = null;
+let scrollAnimationFrame = null;
+let lastScrollTimestamp = null;
 
 const scaleSharps = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const scaleFlats  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
@@ -81,7 +83,9 @@ function toggleAutoScroll() {
   const btn = document.getElementById('scrollBtn');
   if (!btn) return;
   if (isScrolling) {
-    clearInterval(scrollInterval);
+    if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame);
+    scrollAnimationFrame = null;
+    lastScrollTimestamp = null;
     btn.textContent = "SCROLL";
     btn.classList.remove('active');
     isScrolling = false;
@@ -93,29 +97,50 @@ function toggleAutoScroll() {
   }
 }
 
-function startScrollEngine() {
-  if (scrollInterval) clearInterval(scrollInterval);
-  
-  // Speeds >= 1 decrease interval time (faster)
-  // Speeds < 1 increase interval time (slower)
-  const baseInterval = scrollSpeed >= 1 
-    ? 60 / scrollSpeed 
-    : 60 * (2 - scrollSpeed);
+// Map scroll speed (-5 to 10) to exact Pixels Per Second
+function getPixelsPerSecond(speed) {
+  if (speed >= 1) {
+    return speed * 25; // Speed 1 = 25px/s, Speed 10 = 250px/s
+  } else {
+    // Speed 0 = 15px/s, Speed -1 = 10px/s, Speed -5 = 2px/s (ultra-slow)
+    return Math.max(1, 15 + (speed * 2.5));
+  }
+}
 
-  scrollInterval = setInterval(() => {
-    window.scrollBy(0, 1);
+function startScrollEngine() {
+  if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame);
+
+  function scrollStep(timestamp) {
+    if (!isScrolling) return;
+
+    if (!lastScrollTimestamp) lastScrollTimestamp = timestamp;
+    const deltaTime = (timestamp - lastScrollTimestamp) / 1000; // time elapsed in seconds
+    lastScrollTimestamp = timestamp;
+
+    const pixelsPerSecond = getPixelsPerSecond(scrollSpeed);
+    const distanceToScroll = pixelsPerSecond * deltaTime;
+
+    // Smooth sub-pixel scrolling
+    window.scrollBy(0, distanceToScroll);
+
+    // Stop automatically when reaching the bottom of the page
     if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 2) {
       toggleAutoScroll();
+      return;
     }
-  }, baseInterval);
+
+    scrollAnimationFrame = requestAnimationFrame(scrollStep);
+  }
+
+  lastScrollTimestamp = performance.now();
+  scrollAnimationFrame = requestAnimationFrame(scrollStep);
 }
 
 function changeScrollSpeed(amount) {
-  // Allows speed to adjust from -5 (very slow) to 10 (very fast)
   scrollSpeed = Math.max(-5, Math.min(10, scrollSpeed + amount));
   const label = document.getElementById('scrollSpeedLabel');
   if (label) label.textContent = scrollSpeed;
-  if (isScrolling) startScrollEngine(); 
+  // Speed updates take effect instantly without restarting the animation frame!
 }
 
 // 4. CHORD DIAGRAM MODAL
