@@ -173,7 +173,7 @@ body {
 .lyrics-container {
   display: flex;
   flex-direction: column;
-  gap: 0; /* Zero gap so adjacent highlighted lines connect seamlessly */
+  gap: 0;
 }
 
 .section-header {
@@ -217,6 +217,8 @@ body {
 .lyric-line {
   font-size: calc(1rem * var(--base-font-scale));
   line-height: 1.6;
+  white-space: pre-wrap; /* Preserves all spaces between words & span boundaries */
+  word-break: break-word;
 }
 
 .lyric-line.hangul { font-weight: 500; }
@@ -228,6 +230,8 @@ body {
   display: inline-flex;
   flex-direction: column;
   vertical-align: bottom;
+  min-width: max-content; /* Stretches to accommodate wide chords without squishing text */
+  white-space: pre-wrap;   /* Keeps letter and word spaces exact */
 }
 
 .inline-chord {
@@ -238,6 +242,8 @@ body {
   line-height: calc(1.2em * var(--base-font-scale));
   cursor: pointer;
   user-select: none;
+  white-space: pre;
+  padding-right: 0.35em; /* Minimum spacing so adjacent chords (e.g. G#m B) never collide */
 }
 
 .inline-chord:hover {
@@ -246,6 +252,10 @@ body {
 
 .inline-chord.empty {
   visibility: hidden;
+}
+
+.lyric-text {
+  white-space: pre-wrap; /* Guarantees spaces before/after chord syllables remain intact */
 }
 
 .highlighted-syllable {
