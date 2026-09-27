@@ -9,6 +9,7 @@ let scrollSpeed = 1;
 let activeMemberFilter = null;
 let scrollAnimationFrame = null;
 let lastScrollTimestamp = null;
+let currentScrollY = 0;
 
 const scaleSharps = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const scaleFlats  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
@@ -97,33 +98,45 @@ function toggleAutoScroll() {
   }
 }
 
-// Map scroll speed (-5 to 10) to exact Pixels Per Second
+// Maps speed (-5 to 10) to exact Pixels Per Second
 function getPixelsPerSecond(speed) {
   if (speed >= 1) {
-    return speed * 25; // Speed 1 = 25px/s, Speed 10 = 250px/s
+    return speed * 30; // Speed 1 = 30px/s, Speed 10 = 300px/s
   } else {
-    // Speed 0 = 15px/s, Speed -1 = 10px/s, Speed -5 = 2px/s (ultra-slow)
-    return Math.max(1, 15 + (speed * 2.5));
+    // Linear scale for slow/negative speeds:
+    // Speed  0 = 20px/s
+    // Speed -1 = 16px/s
+    // Speed -3 = 8px/s
+    // Speed -5 = 1.5px/s (ultra-slow crawling)
+    return Math.max(1.5, 20 + (speed * 3.7));
   }
 }
 
 function startScrollEngine() {
   if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame);
+  
+  // Sync starting position with current window position
+  currentScrollY = window.scrollY;
 
   function scrollStep(timestamp) {
     if (!isScrolling) return;
 
     if (!lastScrollTimestamp) lastScrollTimestamp = timestamp;
-    const deltaTime = (timestamp - lastScrollTimestamp) / 1000; // time elapsed in seconds
+    const deltaTime = (timestamp - lastScrollTimestamp) / 1000; // seconds elapsed
     lastScrollTimestamp = timestamp;
 
+    // Resync tracker if the user manually scrolls or drags the scrollbar
+    if (Math.abs(window.scrollY - currentScrollY) > 8) {
+      currentScrollY = window.scrollY;
+    }
+
     const pixelsPerSecond = getPixelsPerSecond(scrollSpeed);
-    const distanceToScroll = pixelsPerSecond * deltaTime;
+    currentScrollY += pixelsPerSecond * deltaTime;
 
-    // Smooth sub-pixel scrolling
-    window.scrollBy(0, distanceToScroll);
+    // Scroll using floating-point precision
+    window.scrollTo(0, currentScrollY);
 
-    // Stop automatically when reaching the bottom of the page
+    // Stop automatically at bottom of page
     if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 2) {
       toggleAutoScroll();
       return;
@@ -140,7 +153,6 @@ function changeScrollSpeed(amount) {
   scrollSpeed = Math.max(-5, Math.min(10, scrollSpeed + amount));
   const label = document.getElementById('scrollSpeedLabel');
   if (label) label.textContent = scrollSpeed;
-  // Speed updates take effect instantly without restarting the animation frame!
 }
 
 // 4. CHORD DIAGRAM MODAL
