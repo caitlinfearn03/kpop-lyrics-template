@@ -1,3 +1,98 @@
+/* master.js */
+
+// 1. STATE & CONFIGURATION
+let currentKeyOffset = 0;
+let currentFontScale = 1.0;
+let scrollInterval = null;
+let isScrolling = false;
+let scrollSpeed = 1;
+let activeMemberFilter = null;
+
+const scaleSharps = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const scaleFlats  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+const chordFormulae = {
+  '': [0, 4, 7], 'm': [0, 3, 7], '7': [0, 4, 7, 10], 'm7': [0, 3, 7, 10], 
+  'maj7': [0, 4, 7, 11], 'sus4': [0, 5, 7], '7sus4': [0, 5, 7, 10], 
+  'dim': [0, 3, 6], 'aug': [0, 4, 8], '6': [0, 4, 7, 9], 'm6': [0, 3, 7, 9]
+};
+
+// 2. INJECT UI FRAMEWORK SAFELY
+function injectUI() {
+  if (document.getElementById('lyricsContainer')) return; 
+  
+  const uiHTML = `
+<div class="song-header-container" id="headerContainer"></div>
+
+<div class="controls">
+  <label class="toggle-pill"><input type="checkbox" id="showMember" checked onchange="updateView()"> Member</label>
+  <label class="toggle-pill"><input type="checkbox" id="showChords" checked onchange="updateView()"> Chords</label>
+  <label class="toggle-pill"><input type="checkbox" id="showHangul" checked onchange="updateView()"> Hangul</label>
+  <label class="toggle-pill"><input type="checkbox" id="showRoman" checked onchange="updateView()"> Easy Romanized</label>
+  <label class="toggle-pill"><input type="checkbox" id="showEnglish" checked onchange="updateView()"> English</label>
+  
+  <div class="utility-widget" id="transposeWidget">
+    <span class="utility-label">KEY:</span>
+    <button class="btn-utility" onclick="changeKey(-1)">−</button>
+    <span class="utility-val" id="keyOffset">0</span>
+    <button class="btn-utility" onclick="changeKey(1)">+</button>
+  </div>
+
+  <div class="utility-widget">
+    <span class="utility-label">FONT:</span>
+    <button class="btn-utility" onclick="changeFontSize(-0.1)">−</button>
+    <span class="utility-val" id="fontSizeLabel">100%</span>
+    <button class="btn-utility" onclick="changeFontSize(0.1)">+</button>
+  </div>
+</div>
+
+<div class="lyrics-container" id="lyricsContainer"></div>
+<div class="embed-footer-spacer"></div>
+
+<div class="scroll-dock">
+  <button class="btn-scroll-toggle" id="scrollBtn" onclick="toggleAutoScroll()">SCROLL</button>
+  <div class="utility-widget">
+    <span class="utility-label">SPEED:</span>
+    <button class="btn-utility" onclick="changeScrollSpeed(-1)">−</button>
+    <span class="utility-val" id="scrollSpeedLabel">1</span>
+    <button class="btn-utility" onclick="changeScrollSpeed(1)">+</button>
+  </div>
+</div>
+
+<div class="chord-modal-overlay" id="modalOverlay" onclick="closeChordModal()"></div>
+<div class="chord-modal" id="chordModal">
+  <div class="chord-modal-title" id="modalTitle">C Major</div>
+  <div id="pianoContainer"></div>
+</div>
+  `;
+  document.body.insertAdjacentHTML('afterbegin', uiHTML);
+}
+
+// 3. FONT & SCROLL FUNCTIONS
+function changeFontSize(amount) {
+  currentFontScale = Math.max(0.6, Math.min(2.0, currentFontScale + amount));
+  document.documentElement.style.setProperty('--base-font-scale', currentFontScale);
+  const label = document.getElementById('fontSizeLabel');
+  if (label) label.textContent = Math.round(currentFontScale * 100) + '%';
+  updateView(); 
+}
+
+function toggleAutoScroll() {
+  const btn = document.getElementById('scrollBtn');
+  if (!btn) return;
+  if (isScrolling) {
+    clearInterval(scrollInterval);
+    btn.textContent = "SCROLL";
+    btn.classList.remove('active');
+    isScrolling = false;
+  } else {
+    btn.textContent = "STOP";
+    btn.classList.add('active');
+    isScrolling = true;
+    startScrollEngine();
+  }
+}
+
 function startScrollEngine() {
   if (scrollInterval) clearInterval(scrollInterval);
   
@@ -18,6 +113,500 @@ function startScrollEngine() {
 function changeScrollSpeed(amount) {
   // Allows speed to adjust from -5 (very slow) to 10 (very fast)
   scrollSpeed = Math.max(-5, Math.min(10, scrollSpeed + amount));
-  document.getElementById('scrollSpeedLabel').textContent = scrollSpeed;
+  const label = document.getElementById('scrollSpeedLabel');
+  if (label) label.textContent = scrollSpeed;
   if (isScrolling) startScrollEngine(); 
+}
+
+// 4. CHORD DIAGRAM MODAL
+function showChordDiagram(chordName) {
+  if (!chordName) return;
+  const modal = document.getElementById('chordModal');
+  const overlay = document.getElementById('modalOverlay');
+  const title = document.getElementById('modalTitle');
+  const container = document.getElementById('pianoContainer');
+  if (!modal || !overlay || !title || !container) return;
+  
+  title.textContent = chordName;
+  
+  const chordMatch = chordName.match(/^([A-G][b#]?)(.*)$/);
+  if (!chordMatch) return;
+  
+  let rootNote = chordMatch[1];
+  let extension = chordMatch[2];
+  
+  if (extension.includes('/')) extension = extension.split('/')[0];
+  if (extension === 'M') extension = '';
+  if (extension === 'min') extension = 'm';
+  
+  let rootIndex = scaleSharps.indexOf(rootNote);
+  if (rootIndex === -1) rootIndex = scaleFlats.indexOf(rootNote);
+  
+  let activeIntervals = chordFormulae[extension] || chordFormulae['']; 
+  let absoluteKeysToHighlight = activeIntervals.map(interval => (rootIndex + interval) % 12);
+
+  const whiteKeyPitches = [0, 2, 4, 5, 7, 9, 11, 0, 2, 4, 5, 7, 9, 11];
+  const blackKeysConfig = [
+    { pitch: 1, leftOffset: 18 },  { pitch: 3, leftOffset: 48 },  
+    { pitch: 6, leftOffset: 108 }, { pitch: 8, leftOffset: 138 }, 
+    { pitch: 10, leftOffset: 168 }, { pitch: 1, leftOffset: 228 }, 
+    { pitch: 3, leftOffset: 258 }  
+  ];
+
+  let svgHtml = `<svg class="keyboard-svg" viewBox="0 0 420 150" xmlns="http://www.w3.org/2000/svg">`;
+
+  for (let i = 0; i < 14; i++) {
+    let currentPitch = whiteKeyPitches[i];
+    let isLit = absoluteKeysToHighlight.includes(currentPitch);
+    let keyColor = isLit ? (currentPitch === rootIndex ? '#8e24aa' : '#ce93d8') : '#ffffff';
+    svgHtml += `<rect x="${i * 30}" y="0" width="30" height="150" fill="${keyColor}" stroke="#202124" stroke-width="1.5" rx="2" />`;
+  }
+
+  blackKeysConfig.forEach(bk => {
+    let isLit = absoluteKeysToHighlight.includes(bk.pitch);
+    let keyColor = isLit ? (bk.pitch === rootIndex ? '#6a1b9a' : '#ba68c8') : '#202124';
+    svgHtml += `<rect x="${bk.leftOffset}" y="0" width="18" height="95" fill="${keyColor}" stroke="#202124" stroke-width="1" rx="2" />`;
+  });
+
+  svgHtml += `</svg>`;
+  container.innerHTML = svgHtml;
+
+  modal.style.display = 'block';
+  overlay.classList.add('active');
+  setTimeout(() => modal.classList.add('active'), 10);
+}
+
+function closeChordModal() {
+  const modal = document.getElementById('chordModal');
+  const overlay = document.getElementById('modalOverlay');
+  if (!modal || !overlay) return;
+  modal.classList.remove('active');
+  overlay.classList.remove('active');
+  setTimeout(() => modal.style.display = 'none', 200);
+}
+
+// 5. CHORD PROCESSING & TRANSPOSITION
+function processInlineChords(text) {
+  if (!text) return "";
+  
+  let processed = text.replace(/\[([A-G][b#]?[^\]]*)\](_+)/g, (match, chord, underscores) => {
+    const spaces = '&nbsp;'.repeat(underscores.length);
+    return `[${chord}]${spaces}`;
+  });
+  
+  processed = processed.replace(/_/g, '');
+  const parts = processed.split('[');
+  let result = '';
+
+  for (let i = 0; i < parts.length; i++) {
+    let part = parts[i];
+    if (i === 0 && part === '') continue;
+
+    if (i === 0 || !part.includes(']')) {
+      result += `<span class="chord-segment"><span class="inline-chord empty"></span><span class="lyric-text">${part}</span></span>`;
+    } else {
+      const splitPart = part.split(']');
+      const chord = splitPart[0];
+      const lyricText = splitPart.slice(1).join(']');
+
+      let textHtml = '';
+      if (lyricText.length > 0) {
+        let firstChar = lyricText.charAt(0);
+        if (firstChar !== ' ' && !firstChar.startsWith('&')) {
+          textHtml = `<span class="highlighted-syllable-marker">${firstChar}</span>${lyricText.slice(1)}`;
+        } else {
+          textHtml = lyricText;
+        }
+      }
+
+      result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${chord}</span><span class="lyric-text">${textHtml}</span></span>`;
+    }
+  }
+  return result;
+}
+
+function stripChordTags(htmlStr) {
+  const doc = new DOMParser().parseFromString(htmlStr, 'text/html');
+  const chords = doc.querySelectorAll('.inline-chord');
+  chords.forEach(c => c.remove());
+  return doc.body.textContent || "";
+}
+
+function changeKey(steps) {
+  currentKeyOffset += steps;
+  const keyOffsetEl = document.getElementById('keyOffset');
+  if (keyOffsetEl) keyOffsetEl.textContent = (currentKeyOffset > 0 ? '+' : '') + currentKeyOffset;
+  const chordElements = document.querySelectorAll('.inline-chord[data-original-chord]');
+  chordElements.forEach(el => {
+    const original = el.getAttribute('data-original-chord');
+    el.textContent = transposeLine(original, currentKeyOffset);
+  });
+}
+
+function transposeLine(text, steps) {
+  if (steps === 0) return text;
+  const chordRegex = /[A-G][b#]?/g;
+  return text.replace(chordRegex, (match) => shiftNote(match, steps));
+}
+
+function shiftNote(note, steps) {
+  let index = scaleSharps.indexOf(note);
+  if (index === -1) index = scaleFlats.indexOf(note);
+  if (index === -1) return note;
+  let newIndex = (index + steps) % 12;
+  if (newIndex < 0) newIndex += 12;
+  return scaleSharps[newIndex];
+}
+
+// 6. MEMBER HIGHLIGHT FILTERING ENGINE
+function toggleMemberFilter(emoji) {
+  if (activeMemberFilter === emoji) {
+    activeMemberFilter = null; 
+  } else {
+    activeMemberFilter = emoji;
+  }
+
+  document.querySelectorAll('.member-key-item').forEach(item => {
+    if (activeMemberFilter && item.getAttribute('data-emoji') === activeMemberFilter) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+
+  applyMemberFilter();
+}
+
+function applyMemberFilter() {
+  const blocks = Array.from(document.querySelectorAll('.line-block'));
+
+  blocks.forEach(block => {
+    const memberAttr = block.getAttribute('data-member') || "";
+    let isMatch = false;
+    if (activeMemberFilter) {
+      const isAll = memberAttr.toUpperCase().includes("ALL");
+      isMatch = memberAttr.includes(activeMemberFilter) || isAll;
+    }
+    block.dataset.isMatch = isMatch ? "true" : "false";
+  });
+
+  blocks.forEach(block => {
+    block.classList.remove(
+      'member-highlighted',
+      'member-dimmed',
+      'highlight-start',
+      'highlight-middle',
+      'highlight-end',
+      'highlight-only'
+    );
+
+    if (activeMemberFilter) {
+      const isMatch = block.dataset.isMatch === "true";
+
+      if (isMatch) {
+        block.classList.add('member-highlighted');
+
+        const prevSib = block.previousElementSibling;
+        const nextSib = block.nextElementSibling;
+
+        const prevMatch = prevSib && prevSib.classList.contains('line-block') && prevSib.dataset.isMatch === "true";
+        const nextMatch = nextSib && nextSib.classList.contains('line-block') && nextSib.dataset.isMatch === "true";
+
+        if (!prevMatch && nextMatch) {
+          block.classList.add('highlight-start');
+        } else if (prevMatch && nextMatch) {
+          block.classList.add('highlight-middle');
+        } else if (prevMatch && !nextMatch) {
+          block.classList.add('highlight-end');
+        } else {
+          block.classList.add('highlight-only');
+        }
+      } else {
+        block.classList.add('member-dimmed');
+      }
+    }
+  });
+}
+
+// 7. SONG DATA PARSER & DOM BUILDER
+function buildLyrics() {
+  const lyricsContainer = document.getElementById('lyricsContainer');
+  const headerContainer = document.getElementById('headerContainer');
+  
+  if (!lyricsContainer || !headerContainer) return;
+  if (typeof songData === 'undefined') return;
+
+  lyricsContainer.innerHTML = '';
+  headerContainer.innerHTML = '';
+
+  let hasMember = false, hasChords = false, hasHangul = false, hasRoman = false, hasEnglish = false;
+  let keyString = "";
+  let currentMember = "";
+
+  const blocks = songData.trim().split(/\n\s*\n/);
+
+  blocks.forEach(blockStr => {
+    const lines = blockStr.trim().split('\n');
+    let title = "", artist = "";
+    let section = "", member = "";
+    let hangul = "", roman = "", english = "";
+
+    lines.forEach(l => {
+      const line = l.trim();
+      if (line.startsWith('Title:')) title = line.replace('Title:', '').trim();
+      else if (line.startsWith('Artist:')) artist = line.replace('Artist:', '').trim();
+      else if (line.startsWith('Key:') || line.startsWith('K:')) keyString = line.replace(/^(Key:|K:)/, '').trim();
+      else if (line.startsWith('S:')) section = line.replace('S:', '').trim();
+      else if (line.startsWith('M:')) { member = line.replace('M:', '').trim(); }
+      else if (line.startsWith('H:')) { hangul = line.replace('H:', '').trim(); hasHangul = true; }
+      else if (line.startsWith('R:')) { roman = line.replace('R:', '').trim(); hasRoman = true; }
+      else if (line.startsWith('E:')) { english = line.replace('E:', '').trim(); hasEnglish = true; }
+    });
+
+    if (title || artist) {
+      if (title) {
+        const h1 = document.createElement('h1');
+        h1.className = 'song-title';
+        h1.textContent = title;
+        headerContainer.appendChild(h1);
+      }
+      if (artist) {
+        const h2 = document.createElement('h2');
+        h2.className = 'song-artist';
+        h2.textContent = artist;
+        headerContainer.appendChild(h2);
+      }
+      return;
+    }
+
+    if (section) {
+      const sectionDiv = document.createElement('div');
+      sectionDiv.className = 'section-header';
+      sectionDiv.textContent = section;
+      lyricsContainer.appendChild(sectionDiv);
+    }
+
+    if (member) {
+      currentMember = member;
+    } else if (hangul || roman || english) {
+      member = currentMember;
+    }
+
+    if (member) hasMember = true;
+
+    if (member || hangul || roman || english) {
+      const blockDiv = document.createElement('div');
+      blockDiv.className = 'line-block';
+      if (member) blockDiv.setAttribute('data-member', member);
+
+      if (hangul.includes('[') || roman.includes('[') || english.includes('[')) hasChords = true;
+
+      blockDiv.innerHTML = `
+        <div class="member-col"></div>
+        <div class="content-col">
+          ${hangul ? `<div class="lyric-line hangul">${processInlineChords(hangul)}</div>` : ''}
+          ${roman ? `<div class="lyric-line romanized">${processInlineChords(roman)}</div>` : ''}
+          ${english ? `<div class="lyric-line english">${processInlineChords(english)}</div>` : ''}
+        </div>
+      `;
+
+      lyricsContainer.appendChild(blockDiv);
+    }
+  });
+
+  // Render Member Key Legend if provided
+  if (keyString) {
+    const keyContainer = document.createElement('div');
+    keyContainer.className = 'member-key-container';
+    keyContainer.id = 'memberKeyContainer';
+
+    const items = keyString.split(/[\|,;]/);
+    items.forEach(item => {
+      const trimmed = item.trim();
+      if (!trimmed) return;
+
+      const parts = trimmed.split('=');
+      let emoji = "", name = "";
+      if (parts.length === 2) {
+        emoji = parts[0].trim();
+        name = parts[1].trim();
+      } else {
+        const firstSpaceIndex = trimmed.search(/\s/);
+        if (firstSpaceIndex !== -1) {
+          emoji = trimmed.substring(0, firstSpaceIndex).trim();
+          name = trimmed.substring(firstSpaceIndex).trim();
+        } else {
+          emoji = trimmed;
+        }
+      }
+
+      const keyItem = document.createElement('span');
+      keyItem.className = 'member-key-item';
+      keyItem.setAttribute('data-emoji', emoji);
+      keyItem.onclick = function() { toggleMemberFilter(emoji); };
+      keyItem.innerHTML = `<span class="member-key-emoji">${emoji}</span> ${name}`;
+      keyContainer.appendChild(keyItem);
+    });
+
+    headerContainer.appendChild(keyContainer);
+  }
+
+  configurePillVisibility('showMember', hasMember);
+  configurePillVisibility('showChords', hasChords);
+  configurePillVisibility('showHangul', hasHangul);
+  configurePillVisibility('showRoman', hasRoman);
+  configurePillVisibility('showEnglish', hasEnglish);
+}
+
+function configurePillVisibility(elementId, isPresent) {
+  const checkbox = document.getElementById(elementId);
+  if (!checkbox) return;
+  const pillWrapper = checkbox.closest('.toggle-pill');
+  if (isPresent) { checkbox.checked = true; pillWrapper.classList.remove('hidden'); } 
+  else { checkbox.checked = false; pillWrapper.classList.add('hidden'); }
+}
+
+// 8. VIEW CONTROLLER
+function updateView() {
+  const showMemberEl = document.getElementById('showMember');
+  const showChordsEl = document.getElementById('showChords');
+  const showHangulEl = document.getElementById('showHangul');
+  const showRomanEl = document.getElementById('showRoman');
+  const showEnglishEl = document.getElementById('showEnglish');
+
+  if (!showMemberEl || !showChordsEl || !showHangulEl || !showRomanEl || !showEnglishEl) return;
+
+  const memberOn = showMemberEl.checked;
+  const chordsOn = showChordsEl.checked;
+  const hangulOn = showHangulEl.checked;
+  const romanOn = showRomanEl.checked;
+  const englishOn = showEnglishEl.checked;
+
+  const keyContainer = document.getElementById('memberKeyContainer');
+  if (keyContainer) {
+    if (memberOn) keyContainer.classList.remove('hidden');
+    else {
+      keyContainer.classList.add('hidden');
+      if (activeMemberFilter) toggleMemberFilter(activeMemberFilter);
+    }
+  }
+
+  const transWidget = document.getElementById('transposeWidget');
+  if (transWidget) {
+    if (chordsOn && !transWidget.parentNode.querySelector('#showChords').closest('.toggle-pill').classList.contains('hidden')) {
+      transWidget.classList.remove('hidden');
+    } else {
+      transWidget.classList.add('hidden');
+    }
+  }
+
+  const blocks = document.querySelectorAll('.line-block');
+  blocks.forEach(block => {
+    const hangulEl = block.querySelector('.hangul');
+    const romanEl = block.querySelector('.romanized');
+    const englishEl = block.querySelector('.english');
+
+    if (hangulEl) hangulEl.classList.remove('hidden');
+    if (romanEl) romanEl.classList.remove('hidden');
+    if (englishEl) englishEl.classList.remove('hidden');
+
+    if (hangulEl && !hangulOn) hangulEl.classList.add('hidden');
+    if (romanEl && !romanOn) romanEl.classList.add('hidden');
+    if (englishEl && !englishOn) englishEl.classList.add('hidden');
+
+    let dynamicSeenTexts = new Set();
+    const checkVisibilityPriority = (el, toggleActive) => {
+      if (!el || el.classList.contains('hidden')) return;
+      if (toggleActive) {
+        const rawCleanText = stripChordTags(el.innerHTML).trim();
+        if (dynamicSeenTexts.has(rawCleanText) && rawCleanText !== "") {
+          el.classList.add('hidden');
+        } else {
+          dynamicSeenTexts.add(rawCleanText);
+        }
+      }
+    };
+    checkVisibilityPriority(hangulEl, hangulOn);
+    checkVisibilityPriority(romanEl, romanOn);
+    checkVisibilityPriority(englishEl, englishOn);
+
+    let chordRowAssigned = false;
+    const targetLines = [hangulEl, romanEl, englishEl];
+
+    targetLines.forEach(el => {
+      if (!el || el.classList.contains('hidden')) return;
+
+      const inlineChords = el.querySelectorAll('.inline-chord');
+      const highlightedSyllables = el.querySelectorAll('.highlighted-syllable-marker');
+
+      highlightedSyllables.forEach(s => {
+        if (chordsOn) s.className = 'highlighted-syllable';
+        else s.className = '';
+      });
+
+      if (chordsOn && !chordRowAssigned && inlineChords.length > 0) {
+        inlineChords.forEach(c => c.classList.remove('hidden'));
+        chordRowAssigned = true;
+      } else {
+        inlineChords.forEach(c => c.classList.add('hidden'));
+      }
+    });
+  });
+
+  updateMemberColumn(memberOn);
+  applyMemberFilter();
+}
+
+function updateMemberColumn(showMember) {
+  const blocks = document.querySelectorAll('.line-block');
+  const memberCols = document.querySelectorAll('.member-col');
+  let lastMember = "";
+
+  memberCols.forEach(col => {
+    if (showMember) col.classList.remove('hidden');
+    else col.classList.add('hidden');
+  });
+
+  blocks.forEach(block => {
+    const currentMember = block.getAttribute('data-member');
+    const memberCol = block.querySelector('.member-col');
+    if (!memberCol) return;
+    memberCol.innerHTML = '';
+
+    if (showMember && currentMember) {
+      if (currentMember !== lastMember) {
+        const badge = document.createElement('span');
+        badge.className = 'member-prefix';
+        badge.textContent = currentMember + ':';
+        memberCol.appendChild(badge);
+        alignBadgeToFirstLyric(block, badge);
+      }
+      lastMember = currentMember;
+    }
+  });
+}
+
+function alignBadgeToFirstLyric(block, badge) {
+  const showChordsEl = document.getElementById('showChords');
+  const chordsOn = showChordsEl ? showChordsEl.checked : false;
+  const firstVisibleLine = block.querySelector('.lyric-line:not(.hidden)');
+  
+  if (firstVisibleLine && chordsOn && firstVisibleLine.querySelector('.inline-chord:not(.hidden)')) {
+    badge.style.marginTop = (20 * currentFontScale) + 'px'; 
+  } else {
+    badge.style.marginTop = '0px';
+  }
+}
+
+// 9. SAFE INITIALIZATION
+function initApp() {
+  injectUI();
+  buildLyrics();
+  updateView();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
 }
