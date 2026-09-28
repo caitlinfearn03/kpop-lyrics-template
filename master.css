@@ -4,7 +4,8 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #333;
+  background-color: #ffffff !important; /* Added to force a white background */
+  color: #333 !important;
   line-height: 1.6;
   margin: 0;
   padding: 15px;
@@ -115,28 +116,28 @@ body {
 
 /* --- Chords Formatting --- */
 .chord-line-wrapper {
-  display: inline-flex;
+  display: inline-flex !important;
   flex-wrap: wrap;
   align-items: flex-end;
-  padding-top: 1.2em; /* Creates the space above text for the absolute positioned chord */
   line-height: 1.2;
 }
 
 .chord-segment {
   display: inline-flex !important;
   flex-direction: column !important;
-  position: relative;
   white-space: pre-wrap !important;
+  vertical-align: bottom !important;
 }
 
 .inline-chord {
-  position: absolute;
-  top: -1.2em; /* Pushes the chord above the lyric text */
-  left: 0;
+  position: static !important; /* Changed from absolute to stop chords from squishing */
+  display: block !important;
   color: #8e44ad;
   font-weight: bold;
   font-size: 0.85em;
   white-space: nowrap;
+  margin-bottom: 2px !important;
+  min-height: 1.2em;
 }
 
 .lyric-text {
@@ -151,10 +152,20 @@ body {
 
 .chord-only-line {
   display: flex !important;
-  flex-wrap: nowrap !important;
-  align-items: baseline !important;
-  white-space: nowrap !important;
-  min-height: 1.5em;
+  flex-wrap: wrap !important; /* Changed to wrap so lines don't break off-screen */
+  align-items: flex-end !important; 
+}
+
+.chord-only-line .chord-segment {
+  margin-right: 12px !important; /* Restores spacing between standalone chords */
+}
+
+/* Added to align trailing repeats like (x2) properly */
+.trailing-extra {
+  display: inline-block !important;
+  align-self: flex-end !important;
+  margin-left: 8px !important;
+  margin-bottom: 3px !important;
 }
 
 /* --- Buttons and Pills --- */
