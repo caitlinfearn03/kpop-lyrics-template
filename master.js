@@ -25,12 +25,12 @@ function initApp() {
     initRetryCount++;
     setTimeout(initApp, 50);
   } else {
-    console.error("master.js error: 'songData' variable was not found. Check if song.js is linked correctly in HTML.");
-    const container = document.getElementById('lyricsContainer') || document.body;
+    console.error("master.js error: 'songData' variable was not found. Check if songData is defined in HTML or song.js.");
+    let container = document.getElementById('lyricsContainer') || document.body;
     if (container) {
       container.innerHTML = '<div style="color: #ff6b6b; text-align: center; padding: 2rem; font-family: sans-serif;">' +
         '<h2>Unable to load song data</h2>' +
-        '<p>Please ensure <code>song.js</code> is linked in your HTML before <code>master.js</code>.</p>' +
+        '<p>Please ensure <code>songData</code> is defined in your HTML or <code>song.js</code> file.</p>' +
         '</div>';
     }
   }
@@ -74,7 +74,6 @@ function getPixelsPerSecond(speed) {
   if (speed >= 1) {
     return speed * 30; // Speed 1 = 30px/s, Speed 10 = 300px/s
   } else {
-    // Linear scale for slow speeds:
     return Math.max(1.5, 20 + (speed * 3.7));
   }
 }
@@ -242,13 +241,22 @@ function showChordDiagram(chord) {
 
 // 6. SONG DATA PARSER & DOM BUILDER
 function buildLyrics() {
-  const lyricsContainer = document.getElementById('lyricsContainer');
-  const headerContainer = document.getElementById('headerContainer');
+  let headerContainer = document.getElementById('headerContainer');
+  let lyricsContainer = document.getElementById('lyricsContainer');
   
-  if (!lyricsContainer || !headerContainer) {
-    console.error("master.js error: Could not find #lyricsContainer or #headerContainer in HTML.");
-    return;
+  // Auto-create missing containers if not explicit in HTML
+  if (!headerContainer) {
+    headerContainer = document.createElement('div');
+    headerContainer.id = 'headerContainer';
+    document.body.insertBefore(headerContainer, document.body.firstChild);
   }
+  
+  if (!lyricsContainer) {
+    lyricsContainer = document.createElement('div');
+    lyricsContainer.id = 'lyricsContainer';
+    document.body.appendChild(lyricsContainer);
+  }
+
   if (typeof songData === 'undefined') return;
 
   lyricsContainer.innerHTML = '';
