@@ -186,7 +186,7 @@ function processInlineChords(text) {
   
   processed = processed.replace(/_/g, '');
   const parts = processed.split('[');
-  let result = '<span class="chord-line-wrapper" style="display: inline-flex; flex-wrap: wrap; max-width: 100%; word-break: break-word;">';
+  let result = '<span class="chord-line-wrapper" style="display: inline-flex; flex-wrap: wrap; align-items: baseline; max-width: 100%; word-break: break-word;">';
 
   for (let i = 0; i < parts.length; i++) {
     let part = parts[i];
@@ -203,8 +203,7 @@ function processInlineChords(text) {
       const annotationMatch = lyricText.match(/^(\s*)([\(\[\{].*?[\)\]\}]|\bx\d+\b)(.*)$/i);
       
       if (annotationMatch && lyricText.trim().replace(/^[\(\[\{].*?[\)\]\}]/, '').trim() === '') {
-        result += `<span class="chord-segment" style="display: inline-flex; flex-direction: column; white-space: normal;"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${currentChord}</span><span class="lyric-text">&nbsp;</span></span>`;
-        result += `<span class="chord-annotation" style="white-space: normal;">${annotationMatch[1]}${annotationMatch[2]}${annotationMatch[3]}</span>`;
+        result += `<span class="chord-segment" style="display: inline-flex; flex-direction: column; white-space: normal;"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${currentChord}</span><span class="lyric-text" style="display:inline;">&nbsp;${annotationMatch[1]}${annotationMatch[2]}${annotationMatch[3]}</span></span>`;
       } else {
         let textHtml = '';
         if (lyricText.length > 0) {
@@ -266,7 +265,8 @@ function buildLyrics() {
 
   lyricsContainer.innerHTML = '';
   
-  const oldDynamicHeaders = headerContainer.querySelectorAll('.song-title, .song-artist, .member-key-container');
+  // Clean up dynamic headers safely without touching existing toolbars/tick boxes inside headerContainer
+  const oldDynamicHeaders = headerContainer.querySelectorAll('h1.song-title, h2.song-artist, .member-key-container');
   oldDynamicHeaders.forEach(el => el.remove());
 
   let hasMember = false, hasChords = false, hasHangul = false, hasRoman = false, hasEnglish = false;
