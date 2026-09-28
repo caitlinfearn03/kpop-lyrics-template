@@ -9,7 +9,8 @@ body {
   line-height: 1.6;
   margin: 0;
   padding: 15px;
-  padding-bottom: 90px;
+  /* Extra bottom padding to clear the elevated toolbar on mobile */
+  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
   font-size: 16px;
 }
 
@@ -214,30 +215,35 @@ button {
   font-weight: bold;
 }
 
+/* --- Sticky Footer Floating Toolbar --- */
 .sticky-footer-toolbar {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  bottom: calc(15px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 30px);
+  max-width: 500px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(142, 68, 173, 0.2);
+  border-radius: 30px;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
   align-items: center;
-  padding: 10px 15px;
-  z-index: 1000;
-  box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
+  padding: 8px 15px;
+  z-index: 99999;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
 .sticky-footer-toolbar .toggle-pill {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .sticky-footer-toolbar button {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.08);
 }
 
 #scrollBtn {
