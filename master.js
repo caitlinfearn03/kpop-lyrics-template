@@ -261,6 +261,7 @@ function buildLyrics() {
 
   lyricsContainer.innerHTML = '';
   headerContainer.innerHTML = '';
+  headerContainer.style.textAlign = 'center';
 
   let hasMember = false, hasChords = false, hasHangul = false, hasRoman = false, hasEnglish = false;
   let keyString = "";
@@ -291,12 +292,14 @@ function buildLyrics() {
       if (title) {
         const h1 = document.createElement('h1');
         h1.className = 'song-title';
+        h1.style.textAlign = 'center';
         h1.textContent = title;
         headerContainer.appendChild(h1);
       }
       if (artist) {
         const h2 = document.createElement('h2');
         h2.className = 'song-artist';
+        h2.style.textAlign = 'center';
         h2.textContent = artist;
         headerContainer.appendChild(h2);
       }
