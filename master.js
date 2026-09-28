@@ -13,14 +13,24 @@ let currentScrollY = 0;
 let transposeSteps = 0;
 let activeMemberFilter = null;
 
-// 2. INITIALIZATION (Safe loading & retry engine)
+// 2. INITIALIZATION (Safe loading & diagnostic engine)
+let initRetryCount = 0;
 function initApp() {
   if (typeof songData !== 'undefined') {
     buildLyrics();
     updateView();
-  } else {
-    // Retry shortly if songData script hasn't loaded yet
+  } else if (initRetryCount < 20) { // Retry for up to 1 second
+    initRetryCount++;
     setTimeout(initApp, 50);
+  } else {
+    console.error("master.js error: 'songData' variable was not found. Check if song.js is linked correctly in HTML.");
+    const container = document.getElementById('lyricsContainer');
+    if (container) {
+      container.innerHTML = '<div style="color: #ff6b6b; text-align: center; padding: 2rem; font-family: sans-serif;">' +
+        '<h2>Unable to load song data</h2>' +
+        '<p>Please ensure <code>song.js</code> is linked in your HTML before <code>master.js</code>.</p>' +
+        '</div>';
+    }
   }
 }
 
