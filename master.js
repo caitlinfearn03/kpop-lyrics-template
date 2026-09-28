@@ -12,11 +12,18 @@ let currentScrollY = 0;
 let transposeSteps = 0;
 let activeMemberFilter = null;
 
-// 2. INITIALIZATION
-document.addEventListener('DOMContentLoaded', () => {
-  buildLyrics();
-  updateView();
-});
+// 2. INITIALIZATION (Safe loading & retry engine)
+function initApp() {
+  if (typeof songData !== 'undefined') {
+    buildLyrics();
+    updateView();
+  } else {
+    // Retry shortly if songData script hasn't loaded yet
+    setTimeout(initApp, 50);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initApp);
 
 // 3. FONT SCALING & SMOOTH SCROLL ENGINE
 function changeFontSize(amount) {
@@ -24,7 +31,7 @@ function changeFontSize(amount) {
   document.documentElement.style.setProperty('--base-font-scale', currentFontScale);
   const label = document.getElementById('fontSizeLabel');
   if (label) label.textContent = Math.round(currentFontScale * 100) + '%';
-  updateView(); 
+  updateView();
 }
 
 function toggleAutoScroll() {
@@ -45,16 +52,14 @@ function toggleAutoScroll() {
   }
 }
 
-// Maps speed (-5 to 10) to exact Pixels Per Second
 function getPixelsPerSecond(speed) {
   if (speed >= 1) {
     return speed * 30; // Speed 1 = 30px/s, Speed 10 = 300px/s
   } else {
-    // Linear scale for slow/negative speeds:
+    // Linear scale for slow speeds:
     // Speed  0 = 20px/s
-    // Speed -1 = 16px/s
-    // Speed -3 = 8px/s
-    // Speed -5 = 1.5px/s (ultra-slow crawling)
+    // Speed -1 = 16.3px/s
+    // Speed -5 = 1.5px/s (ultra-slow crawl)
     return Math.max(1.5, 20 + (speed * 3.7));
   }
 }
@@ -62,17 +67,15 @@ function getPixelsPerSecond(speed) {
 function startScrollEngine() {
   if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame);
   
-  // Sync starting position with current window Y position
   currentScrollY = window.scrollY;
 
   function scrollStep(timestamp) {
     if (!isScrolling) return;
 
     if (!lastScrollTimestamp) lastScrollTimestamp = timestamp;
-    const deltaTime = (timestamp - lastScrollTimestamp) / 1000; // seconds elapsed
+    const deltaTime = (timestamp - lastScrollTimestamp) / 1000;
     lastScrollTimestamp = timestamp;
 
-    // Resync tracker if user manually scrolls or drags scrollbar
     if (Math.abs(window.scrollY - currentScrollY) > 8) {
       currentScrollY = window.scrollY;
     }
@@ -80,10 +83,8 @@ function startScrollEngine() {
     const pixelsPerSecond = getPixelsPerSecond(scrollSpeed);
     currentScrollY += pixelsPerSecond * deltaTime;
 
-    // Scroll using floating-point sub-pixel precision
     window.scrollTo(0, currentScrollY);
 
-    // Stop automatically when reaching the bottom of the page
     if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 2) {
       toggleAutoScroll();
       return;
@@ -181,6 +182,7 @@ function processInlineChords(text) {
       const lyricText = splitPart.slice(1).join(']');
       const currentChord = transposeChordName(chord, transposeSteps);
 
+      // Detect trailing annotations like (x2), (4x), (Riff), etc.
       const annotationMatch = lyricText.match(/^(\s*)([\(\[\{].*?[\)\]\}]|\bx\d+\b)(.*)$/i);
       
       if (annotationMatch && lyricText.trim().replace(/^[\(\[\{].*?[\)\]\}]/, '').trim() === '') {
@@ -221,7 +223,6 @@ function configurePillVisibility(elementId, isAvailable) {
 }
 
 function showChordDiagram(chord) {
-  // Optional callback hook for chord diagram modal triggers
   console.log('Chord clicked:', chord);
 }
 
@@ -292,6 +293,7 @@ function buildLyrics() {
 
     if (member) hasMember = true;
 
+    // Detect if this line/block is purely chords with no lyrics
     const isChordOnlyBlock = Boolean(chordOnly) || (
       (hangul || roman || english) &&
       isChordOnlyText(hangul) &&
@@ -410,7 +412,7 @@ function updateMemberColumn(showMember) {
   });
 }
 
-// 8. VIEW & TOGGLE CONTROLLER
+// 8. VIEW & TOGGLE CONTROLLER (Resilient to missing HTML elements)
 function updateView() {
   const showMemberEl = document.getElementById('showMember');
   const showChordsEl = document.getElementById('showChords');
@@ -418,13 +420,12 @@ function updateView() {
   const showRomanEl = document.getElementById('showRoman');
   const showEnglishEl = document.getElementById('showEnglish');
 
-  if (!showMemberEl || !showChordsEl || !showHangulEl || !showRomanEl || !showEnglishEl) return;
-
-  const memberOn = showMemberEl.checked;
-  const chordsOn = showChordsEl.checked;
-  const hangulOn = showHangulEl.checked;
-  const romanOn = showRomanEl.checked;
-  const englishOn = showEnglishEl.checked;
+  // Fallbacks so missing DOM elements don't cause JavaScript exceptions
+  const memberOn = showMemberEl ? showMemberEl.checked : true;
+  const chordsOn = showChordsEl ? showChordsEl.checked : true;
+  const hangulOn = showHangulEl ? showHangulEl.checked : true;
+  const romanOn = showRomanEl ? showRomanEl.checked : true;
+  const englishOn = showEnglishEl ? showEnglishEl.checked : true;
 
   const keyContainer = document.getElementById('memberKeyContainer');
   if (keyContainer) {
@@ -437,8 +438,8 @@ function updateView() {
 
   const transWidget = document.getElementById('transposeWidget');
   if (transWidget) {
-    const chordPill = showChordsEl.closest('.toggle-pill');
-    if (chordsOn && chordPill && !chordPill.classList.contains('hidden')) {
+    const chordPill = showChordsEl ? showChordsEl.closest('.toggle-pill') : null;
+    if (chordsOn && (!chordPill || !chordPill.classList.contains('hidden'))) {
       transWidget.classList.remove('hidden');
     } else {
       transWidget.classList.add('hidden');
@@ -449,7 +450,7 @@ function updateView() {
   blocks.forEach(block => {
     const isChordOnly = block.getAttribute('data-chord-only') === 'true';
 
-    // Hide chord-only blocks if Chords toggle is OFF
+    // Hide chord-only blocks completely if Chords toggle is OFF
     if (isChordOnly && !chordsOn) {
       block.classList.add('hidden');
       return;
@@ -471,7 +472,7 @@ function updateView() {
     if (romanEl && !romanOn) romanEl.classList.add('hidden');
     if (englishEl && !englishOn) englishEl.classList.add('hidden');
 
-    // Prevent duplicate lines when multilanguage toggle priority overlaps
+    // Hide duplicate language lines if prioritized
     let dynamicSeenTexts = new Set();
     const checkVisibilityPriority = (el, toggleActive) => {
       if (!el || el.classList.contains('hidden')) return;
@@ -518,7 +519,7 @@ function updateView() {
     }
   });
 
-  // Automatically hide section headers if all child lines inside that section are hidden
+  // Automatically hide empty section headers when all inner lines are hidden
   const container = document.getElementById('lyricsContainer');
   if (container) {
     const children = Array.from(container.children);
