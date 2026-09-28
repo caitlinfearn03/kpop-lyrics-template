@@ -1,3 +1,12 @@
+/* ==========================================================================
+   Master JavaScript File - Chord & Lyrics Renderer
+   ========================================================================== */
+
+// Safely ensure songData exists globally without throwing ReferenceErrors
+if (typeof window.songData === 'undefined') {
+  window.songData = "";
+}
+
 let currentFontScale = 1.0;
 let isScrolling = false;
 let scrollSpeed = 0;
@@ -8,7 +17,7 @@ let transposeSteps = 0;
 let activeMemberFilter = null;
 
 function initApp() {
-  if (typeof songData !== 'undefined') {
+  if (typeof songData !== 'undefined' && songData) {
     injectLayout();
     buildLyrics();
     updateView();
@@ -158,7 +167,7 @@ function processInlineChords(text) {
     return `<span class="lyric-text">${text}</span>${trailingExtra ? `<span class="trailing-extra">${trailingExtra}</span>` : ''}`;
   }
 
-  let processed = text.replace(/\[([A-G][b#]?[^\]]*)\](_+)/g, (match, chord, underscores) => {
+  let processed = text.replace(/\[([A-G][b#]?[^\]]*)\](_+)/g, function(match, chord, underscores) {
     return `[${chord}]` + ' '.repeat(underscores.length);
   });
   processed = processed.replace(/_/g, '');
@@ -265,7 +274,7 @@ function buildLyrics() {
       const keyItem = document.createElement('span');
       keyItem.className = 'member-key-item';
       keyItem.setAttribute('data-emoji', emoji);
-      keyItem.onclick = () => toggleMemberFilter(emoji);
+      keyItem.onclick = function() { toggleMemberFilter(emoji); };
       keyItem.innerHTML = `<span class="member-key-emoji">${emoji}</span> ${name}`;
       keyContainer.appendChild(keyItem);
     });
@@ -355,7 +364,8 @@ function buildLyrics() {
 }
 
 function lineIsHeaderOrKey(lines) {
-  for (let l of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    let l = lines[i];
     if (l.startsWith('Title:') || l.startsWith('Artist:') || l.startsWith('Key:') || l.startsWith('K:')) return true;
   }
   return false;
@@ -395,11 +405,11 @@ function updateMemberColumn(showMember) {
 }
 
 function updateView() {
-  const memberOn = document.getElementById('showMember').checked;
-  const chordsOn = document.getElementById('showChords').checked;
-  const hangulOn = document.getElementById('showHangul').checked;
-  const romanOn = document.getElementById('showRoman').checked;
-  const englishOn = document.getElementById('showEnglish').checked;
+  const memberOn = document.getElementById('showMember') ? document.getElementById('showMember').checked : true;
+  const chordsOn = document.getElementById('showChords') ? document.getElementById('showChords').checked : true;
+  const hangulOn = document.getElementById('showHangul') ? document.getElementById('showHangul').checked : true;
+  const romanOn = document.getElementById('showRoman') ? document.getElementById('showRoman').checked : true;
+  const englishOn = document.getElementById('showEnglish') ? document.getElementById('showEnglish').checked : true;
 
   const keyContainer = document.getElementById('memberKeyContainer');
   const divider = document.querySelector('.control-divider');
