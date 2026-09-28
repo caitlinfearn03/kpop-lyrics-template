@@ -1,11 +1,3 @@
-/* ==========================================================================
-   MASTER.JS - Interactive Lyrics & Chord Viewer Engine
-   Repository: https://github.com/caitlinfearn03/kpop-lyrics-template
-   ========================================================================== */
-
-console.log("[master.js] Engine initialized.");
-
-// 1. STATE & CONFIGURATION
 let currentFontScale = 1.0;
 let isScrolling = false;
 let scrollSpeed = 0;
@@ -15,35 +7,46 @@ let currentScrollY = 0;
 let transposeSteps = 0;
 let activeMemberFilter = null;
 
-// 2. INITIALIZATION (Safe loading & diagnostic engine)
-let initRetryCount = 0;
 function initApp() {
   if (typeof songData !== 'undefined') {
+    injectLayout();
     buildLyrics();
     updateView();
-  } else if (initRetryCount < 20) { // Retry for up to 1 second
-    initRetryCount++;
-    setTimeout(initApp, 50);
   } else {
-    console.error("master.js error: 'songData' variable was not found. Check if songData is defined in HTML or song.js.");
-    let container = document.getElementById('lyricsContainer') || document.body;
-    if (container) {
-      container.innerHTML = '<div style="color: #ff6b6b; text-align: center; padding: 2rem; font-family: sans-serif;">' +
-        '<h2>Unable to load song data</h2>' +
-        '<p>Please ensure <code>songData</code> is defined in your HTML or <code>song.js</code> file.</p>' +
-        '</div>';
-    }
+    setTimeout(initApp, 50);
   }
 }
 
-// Immediate execution fallback if DOMContentLoaded has already fired
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
   initApp();
 } else {
   document.addEventListener('DOMContentLoaded', initApp);
 }
 
-// 3. FONT SCALING & SMOOTH SCROLL ENGINE
+function injectLayout() {
+  if (!document.getElementById('headerContainer')) {
+    const headerContainer = document.createElement('div');
+    headerContainer.id = 'headerContainer';
+    document.body.insertBefore(headerContainer, document.body.firstChild);
+  }
+
+  if (!document.getElementById('stickyFooter')) {
+    const footer = document.createElement('div');
+    footer.className = 'sticky-footer-toolbar';
+    footer.id = 'stickyFooter';
+    footer.innerHTML = `
+      <button class="toggle-pill" id="scrollBtn" onclick="toggleAutoScroll()">SCROLL</button>
+      <div class="toggle-pill">
+        Speed: 
+        <button onclick="changeScrollSpeed(-1)">-</button>
+        <span id="scrollSpeedLabel">0</span>
+        <button onclick="changeScrollSpeed(1)">+</button>
+      </div>
+    `;
+    document.body.appendChild(footer);
+  }
+}
+
 function changeFontSize(amount) {
   currentFontScale = Math.max(0.6, Math.min(2.0, currentFontScale + amount));
   document.documentElement.style.setProperty('--base-font-scale', currentFontScale);
@@ -60,53 +63,42 @@ function toggleAutoScroll() {
     scrollAnimationFrame = null;
     lastScrollTimestamp = null;
     btn.textContent = "SCROLL";
-    btn.classList.remove('active');
+    btn.classList.remove('active-stop');
     isScrolling = false;
   } else {
     btn.textContent = "STOP";
-    btn.classList.add('active');
+    btn.classList.add('active-stop');
     isScrolling = true;
     startScrollEngine();
   }
 }
 
 function getPixelsPerSecond(speed) {
-  if (speed >= 1) {
-    return speed * 30; // Speed 1 = 30px/s, Speed 10 = 300px/s
-  } else {
-    return Math.max(1.5, 20 + (speed * 3.7));
-  }
+  if (speed >= 1) return speed * 30;
+  return Math.max(1.5, 20 + (speed * 3.7));
 }
 
 function startScrollEngine() {
   if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame);
-  
   currentScrollY = window.scrollY;
 
   function scrollStep(timestamp) {
     if (!isScrolling) return;
-
     if (!lastScrollTimestamp) lastScrollTimestamp = timestamp;
     const deltaTime = (timestamp - lastScrollTimestamp) / 1000;
     lastScrollTimestamp = timestamp;
 
-    if (Math.abs(window.scrollY - currentScrollY) > 8) {
-      currentScrollY = window.scrollY;
-    }
-
+    if (Math.abs(window.scrollY - currentScrollY) > 8) currentScrollY = window.scrollY;
     const pixelsPerSecond = getPixelsPerSecond(scrollSpeed);
     currentScrollY += pixelsPerSecond * deltaTime;
-
     window.scrollTo(0, currentScrollY);
 
     if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 2) {
       toggleAutoScroll();
       return;
     }
-
     scrollAnimationFrame = requestAnimationFrame(scrollStep);
   }
-
   lastScrollTimestamp = performance.now();
   scrollAnimationFrame = requestAnimationFrame(scrollStep);
 }
@@ -117,7 +109,6 @@ function changeScrollSpeed(amount) {
   if (label) label.textContent = scrollSpeed;
 }
 
-// 4. CHORD TRANSPOSITION ENGINE
 const CHROMATIC_SCALE_SHARPS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const CHROMATIC_SCALE_FLATS  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
@@ -125,19 +116,13 @@ function transposeChordName(chordName, steps) {
   if (steps === 0) return chordName;
   const rootMatch = chordName.match(/^([A-G][b#]?)(.*)/);
   if (!rootMatch) return chordName;
-
   const root = rootMatch[1];
   const suffix = rootMatch[2];
-
   let index = CHROMATIC_SCALE_SHARPS.indexOf(root);
-  if (index === -1) {
-    index = CHROMATIC_SCALE_FLATS.indexOf(root);
-  }
+  if (index === -1) index = CHROMATIC_SCALE_FLATS.indexOf(root);
   if (index === -1) return chordName;
-
   let newIndex = (index + steps) % 12;
   if (newIndex < 0) newIndex += 12;
-
   const useFlats = root.includes('b') || chordName.includes('b');
   const scale = useFlats ? CHROMATIC_SCALE_FLATS : CHROMATIC_SCALE_SHARPS;
   return scale[newIndex] + suffix;
@@ -146,152 +131,170 @@ function transposeChordName(chordName, steps) {
 function transpose(stepsDelta) {
   transposeSteps += stepsDelta;
   const label = document.getElementById('transposeLabel');
-  if (label) {
-    label.textContent = (transposeSteps > 0 ? '+' : '') + transposeSteps;
-  }
-
-  const chords = document.querySelectorAll('.inline-chord');
-  chords.forEach(chordEl => {
+  if (label) label.textContent = (transposeSteps > 0 ? '+' : '') + transposeSteps;
+  document.querySelectorAll('.inline-chord').forEach(chordEl => {
     const orig = chordEl.getAttribute('data-original-chord');
-    if (orig) {
-      chordEl.textContent = transposeChordName(orig, transposeSteps);
-    }
+    if (orig) chordEl.textContent = transposeChordName(orig, transposeSteps);
   });
-}
-
-// 5. HELPER UTILITIES & CHORD PARSER
-function stripChordTags(htmlStr) {
-  return htmlStr.replace(/<[^>]*>/g, '').trim();
 }
 
 function isChordOnlyText(str) {
   if (!str) return true;
   const textWithoutChords = str.replace(/\[[^\]]*\]/g, '').trim();
   if (textWithoutChords === '') return true;
-  const annotationRegex = /^[\(\[\{]?\s*(x\d+\vert{}\d+x\vert{}x\s*\d+\vert{}riff\vert{}repeat\vert{}x2\vert{}x4\vert{}outro\vert{}intro\vert{}solo\vert{}instrumental\vert{}\d+)\s*[\)\]\}]?$/i;
-  return annotationRegex.test(textWithoutChords);
+  return /^[\(\[\{]?\s*(x\d+\vert{}\d+x\vert{}x\s*\d+\vert{}riff\vert{}repeat\vert{}x2\vert{}x4\vert{}outro\vert{}intro\vert{}solo\vert{}instrumental\vert{}\d+)\s*[\)\]\}]?$/i.test(textWithoutChords);
 }
 
 function processInlineChords(text) {
   if (!text) return "";
   
-  if (!text.includes('[')) {
-    return `<span class="lyric-text" style="white-space: normal; word-break: break-word;">${text}</span>`;
+  let trailingExtra = "";
+  const trailingMatch = text.match(/(\s*[\(\[\{]?\s*x\d+\s*[\)\]\}]?\s*)$/i);
+  if (trailingMatch && !text.endsWith(']')) {
+    trailingExtra = trailingMatch[1];
+    text = text.substring(0, text.length - trailingMatch[1].length);
   }
+
+  if (!text.includes('[')) return `<span class="lyric-text">${text}${trailingExtra}</span>`;
   
   let processed = text.replace(/\[([A-G][b#]?[^\]]*)\](_+)/g, (match, chord, underscores) => {
-    const spaces = '&nbsp;'.repeat(underscores.length);
-    return `[${chord}]${spaces}`;
+    return `[${chord}]` + ' '.repeat(underscores.length);
   });
-  
   processed = processed.replace(/_/g, '');
   const parts = processed.split('[');
-  let result = '<span class="chord-line-wrapper" style="display: inline-flex; flex-wrap: wrap; align-items: baseline; max-width: 100%; word-break: break-word;">';
+  let result = '<span class="chord-line-wrapper">';
 
   for (let i = 0; i < parts.length; i++) {
     let part = parts[i];
     if (i === 0 && part === '') continue;
-
     if (i === 0 || !part.includes(']')) {
-      result += `<span class="chord-segment" style="display: inline-flex; flex-direction: column; white-space: normal;"><span class="inline-chord empty"></span><span class="lyric-text">${part}</span></span>`;
+      result += `<span class="chord-segment"><span class="inline-chord empty"></span><span class="lyric-text">${part}</span></span>`;
     } else {
       const splitPart = part.split(']');
       const chord = splitPart[0];
-      const lyricText = splitPart.slice(1).join(']');
+      let lyricText = splitPart.slice(1).join(']');
       const currentChord = transposeChordName(chord, transposeSteps);
-
-      const annotationMatch = lyricText.match(/^(\s*)([\(\[\{].*?[\)\]\}]|\bx\d+\b)(.*)$/i);
       
-      if (annotationMatch && lyricText.trim().replace(/^[\(\[\{].*?[\)\]\}]/, '').trim() === '') {
-        result += `<span class="chord-segment" style="display: inline-flex; flex-direction: column; white-space: normal;"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${currentChord}</span><span class="lyric-text" style="display:inline;">&nbsp;${annotationMatch[1]}${annotationMatch[2]}${annotationMatch[3]}</span></span>`;
-      } else {
-        let textHtml = '';
-        if (lyricText.length > 0) {
-          let firstChar = lyricText.charAt(0);
-          if (firstChar !== ' ' && !firstChar.startsWith('&')) {
-            textHtml = `<span class="highlighted-syllable-marker">${firstChar}</span>${lyricText.slice(1)}`;
-          } else {
-            textHtml = lyricText;
-          }
-        } else {
-          textHtml = '&nbsp;';
-        }
-
-        result += `<span class="chord-segment" style="display: inline-flex; flex-direction: column; white-space: normal;"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${currentChord}</span><span class="lyric-text">${textHtml}</span></span>`;
+      if (lyricText.length > 0 && !/^\s/.test(lyricText)) {
+        const firstChar = lyricText.charAt(0);
+        const restText = lyricText.slice(1);
+        lyricText = `<span class="chord-highlight">${firstChar}</span>${restText}`;
       }
+
+      result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${lyricText}</span></span>`;
     }
   }
-  result += '</span>';
+  result += `</span>${trailingExtra}`;
   return result;
 }
 
-function configurePillVisibility(elementId, isAvailable) {
-  const checkbox = document.getElementById(elementId);
-  if (!checkbox) return;
-  const pill = checkbox.closest('.toggle-pill') || checkbox.parentElement;
-  if (pill) {
-    if (isAvailable) {
-      pill.classList.remove('hidden');
-      pill.style.display = '';
-    } else {
-      pill.classList.add('hidden');
-      checkbox.checked = false;
-    }
-  }
-}
-
-function showChordDiagram(chord) {
-  console.log('Chord clicked:', chord);
-}
-
-// 6. SONG DATA PARSER & DOM BUILDER
 function buildLyrics() {
   let headerContainer = document.getElementById('headerContainer');
   let lyricsContainer = document.getElementById('lyricsContainer');
-  
-  if (!headerContainer) {
-    headerContainer = document.createElement('div');
-    headerContainer.id = 'headerContainer';
-    document.body.insertBefore(headerContainer, document.body.firstChild);
-  }
-  
   if (!lyricsContainer) {
     lyricsContainer = document.createElement('div');
     lyricsContainer.id = 'lyricsContainer';
-    document.body.appendChild(lyricsContainer);
+    document.body.insertBefore(lyricsContainer, document.getElementById('stickyFooter'));
   }
-
-  if (typeof songData === 'undefined') return;
-
   lyricsContainer.innerHTML = '';
-  
-  // Clean up dynamic headers safely without touching existing toolbars/tick boxes inside headerContainer
-  const oldDynamicHeaders = headerContainer.querySelectorAll('h1.song-title, h2.song-artist, .member-key-container');
-  oldDynamicHeaders.forEach(el => el.remove());
+  headerContainer.innerHTML = '';
 
-  let hasMember = false, hasChords = false, hasHangul = false, hasRoman = false, hasEnglish = false;
   let keyString = "";
   let currentMember = "";
+  let title = "", artist = "";
 
   const blocks = songData.trim().split(/\n\s*\n/);
-
+  
   blocks.forEach(blockStr => {
     const lines = blockStr.trim().split('\n');
-    let title = "", artist = "";
-    let section = "", member = "";
-    let hangul = "", roman = "", english = "", chordOnly = "";
-
     lines.forEach(l => {
       const line = l.trim();
       if (line.startsWith('Title:')) title = line.replace('Title:', '').trim();
       else if (line.startsWith('Artist:')) artist = line.replace('Artist:', '').trim();
       else if (line.startsWith('Key:') || line.startsWith('K:')) keyString = line.replace(/^(Key:|K:)/, '').trim();
-      else if (line.startsWith('S:')) section = line.replace('S:', '').trim();
-      else if (line.startsWith('M:')) { member = line.replace('M:', '').trim(); }
-      else if (line.startsWith('C:')) { chordOnly = line.replace('C:', '').trim(); hasChords = true; }
-      else if (line.startsWith('H:')) { hangul = line.replace('H:', '').trim(); hasHangul = true; }
-      else if (line.startsWith('R:')) { roman = line.replace('R:', '').trim(); hasRoman = true; }
-      else if (line.startsWith('E:')) { english = line.replace('E:', '').trim(); hasEnglish = true; }
+    });
+  });
+
+  if (title) {
+    const h1 = document.createElement('h1');
+    h1.className = 'song-title';
+    h1.style.textAlign = 'center';
+    h1.textContent = title;
+    headerContainer.appendChild(h1);
+  }
+  if (artist) {
+    const h2 = document.createElement('h2');
+    h2.className = 'song-artist';
+    h2.style.textAlign = 'center';
+    h2.textContent = artist;
+    headerContainer.appendChild(h2);
+  }
+
+  const topPanel = document.createElement('div');
+  topPanel.className = 'top-control-panel';
+
+  if (keyString) {
+    const keyContainer = document.createElement('div');
+    keyContainer.className = 'member-key-container';
+    keyContainer.id = 'memberKeyContainer';
+    keyString.split(/[\|,;]/).forEach(item => {
+      const trimmed = item.trim();
+      if (!trimmed) return;
+      const parts = trimmed.split('=');
+      let emoji = parts.length === 2 ? parts[0].trim() : trimmed.split(/\s/)[0];
+      let name = parts.length === 2 ? parts[1].trim() : trimmed.substring(emoji.length).trim();
+      
+      const keyItem = document.createElement('span');
+      keyItem.className = 'member-key-item';
+      keyItem.setAttribute('data-emoji', emoji);
+      keyItem.onclick = () => toggleMemberFilter(emoji);
+      keyItem.innerHTML = `<span class="member-key-emoji">${emoji}</span> ${name}`;
+      keyContainer.appendChild(keyItem);
+    });
+    topPanel.appendChild(keyContainer);
+    
+    const divider = document.createElement('hr');
+    divider.className = 'control-divider';
+    topPanel.appendChild(divider);
+  }
+
+  const toolbarDiv = document.createElement('div');
+  toolbarDiv.className = 'song-toolbar';
+  toolbarDiv.innerHTML = `
+    <label class="toggle-pill"><input type="checkbox" id="showMember" checked onchange="updateView()"> Member</label>
+    <label class="toggle-pill"><input type="checkbox" id="showChords" checked onchange="updateView()"> Chords</label>
+    <label class="toggle-pill"><input type="checkbox" id="showHangul" checked onchange="updateView()"> Hangul</label>
+    <label class="toggle-pill"><input type="checkbox" id="showRoman" checked onchange="updateView()"> Romanized</label>
+    <label class="toggle-pill"><input type="checkbox" id="showEnglish" checked onchange="updateView()"> English</label>
+    <div class="toggle-pill">
+      Font: 
+      <button onclick="changeFontSize(-0.1)">-</button>
+      <span id="fontSizeLabel">100%</span>
+      <button onclick="changeFontSize(0.1)">+</button>
+    </div>
+    <div class="toggle-pill" id="transposeWidget">
+      Transpose: 
+      <button onclick="transpose(-1)">-</button>
+      <span id="transposeLabel">0</span>
+      <button onclick="transpose(1)">+</button>
+    </div>
+  `;
+  topPanel.appendChild(toolbarDiv);
+  headerContainer.appendChild(topPanel);
+
+  blocks.forEach(blockStr => {
+    const lines = blockStr.trim().split('\n');
+    let section = "", member = "";
+    let hangul = "", roman = "", english = "", chordOnly = "";
+
+    lines.forEach(l => {
+      const line = l.trim();
+      if (line.startsWith('S:')) section = line.replace('S:', '').trim();
+      else if (line.startsWith('M:')) member = line.replace('M:', '').trim();
+      else if (line.startsWith('C:')) { chordOnly = line.replace('C:', '').trim(); }
+      else if (line.startsWith('H:')) { hangul = line.replace('H:', '').trim(); }
+      else if (line.startsWith('R:')) { roman = line.replace('R:', '').trim(); }
+      else if (line.startsWith('E:')) { english = line.replace('E:', '').trim(); }
       else if (line && !line.includes(':')) {
         if (!hangul) hangul = line;
         else if (!roman) roman = line;
@@ -299,23 +302,7 @@ function buildLyrics() {
       }
     });
 
-    if (title || artist) {
-      if (title) {
-        const h1 = document.createElement('h1');
-        h1.className = 'song-title';
-        h1.style.textAlign = 'center';
-        h1.textContent = title;
-        headerContainer.appendChild(h1);
-      }
-      if (artist) {
-        const h2 = document.createElement('h2');
-        h2.className = 'song-artist';
-        h2.style.textAlign = 'center';
-        h2.textContent = artist;
-        headerContainer.appendChild(h2);
-      }
-      return;
-    }
+    if (lineIsHeaderOrKey(lines)) return;
 
     if (section) {
       const sectionDiv = document.createElement('div');
@@ -324,33 +311,16 @@ function buildLyrics() {
       lyricsContainer.appendChild(sectionDiv);
     }
 
-    if (member) {
-      currentMember = member;
-    } else if (hangul || roman || english || chordOnly) {
-      member = currentMember;
-    }
+    if (member) currentMember = member;
+    else if (hangul || roman || english || chordOnly) member = currentMember;
 
-    if (member) hasMember = true;
-    if (hangul) hasHangul = true;
-    if (roman) hasRoman = true;
-    if (english) hasEnglish = true;
-
-    const isChordOnlyBlock = Boolean(chordOnly) || (
-      (hangul || roman || english) &&
-      isChordOnlyText(hangul) &&
-      isChordOnlyText(roman) &&
-      isChordOnlyText(english)
-    );
+    const isChordOnlyBlock = Boolean(chordOnly) || ((hangul || roman || english) && isChordOnlyText(hangul) && isChordOnlyText(roman) && isChordOnlyText(english));
 
     if (member || hangul || roman || english || chordOnly) {
       const blockDiv = document.createElement('div');
       blockDiv.className = 'line-block';
       if (member) blockDiv.setAttribute('data-member', member);
       if (isChordOnlyBlock) blockDiv.setAttribute('data-chord-only', 'true');
-
-      if (hangul.includes('[') || roman.includes('[') || english.includes('[') || chordOnly.includes('[')) {
-        hasChords = true;
-      }
 
       blockDiv.innerHTML = `
         <div class="member-col"></div>
@@ -361,92 +331,35 @@ function buildLyrics() {
           ${english ? `<div class="lyric-line english">${processInlineChords(english)}</div>` : ''}
         </div>
       `;
-
       lyricsContainer.appendChild(blockDiv);
     }
   });
-
-  if (keyString) {
-    const keyContainer = document.createElement('div');
-    keyContainer.className = 'member-key-container';
-    keyContainer.id = 'memberKeyContainer';
-
-    const items = keyString.split(/[\|,;]/);
-    items.forEach(item => {
-      const trimmed = item.trim();
-      if (!trimmed) return;
-
-      const parts = trimmed.split('=');
-      let emoji = "", name = "";
-      if (parts.length === 2) {
-        emoji = parts[0].trim();
-        name = parts[1].trim();
-      } else {
-        const firstSpaceIndex = trimmed.search(/\s/);
-        if (firstSpaceIndex !== -1) {
-          emoji = trimmed.substring(0, firstSpaceIndex).trim();
-          name = trimmed.substring(firstSpaceIndex).trim();
-        } else {
-          emoji = trimmed;
-        }
-      }
-
-      const keyItem = document.createElement('span');
-      keyItem.className = 'member-key-item';
-      keyItem.setAttribute('data-emoji', emoji);
-      keyItem.onclick = function() { toggleMemberFilter(emoji); };
-      keyItem.innerHTML = `<span class="member-key-emoji">${emoji}</span> ${name}`;
-      keyContainer.appendChild(keyItem);
-    });
-
-    headerContainer.appendChild(keyContainer);
-  }
-
-  configurePillVisibility('showMember', hasMember || true);
-  configurePillVisibility('showChords', hasChords || true);
-  configurePillVisibility('showHangul', hasHangul || true);
-  configurePillVisibility('showRoman', hasRoman || true);
-  configurePillVisibility('showEnglish', hasEnglish || true);
 }
 
-// 7. MEMBER FILTERING CONTROLLER
+function lineIsHeaderOrKey(lines) {
+  for (let l of lines) {
+    if (l.startsWith('Title:') || l.startsWith('Artist:') || l.startsWith('Key:') || l.startsWith('K:')) return true;
+  }
+  return false;
+}
+
 function toggleMemberFilter(emoji) {
-  const items = document.querySelectorAll('.member-key-item');
-  if (activeMemberFilter === emoji) {
-    activeMemberFilter = null;
-    items.forEach(item => item.classList.remove('active'));
-  } else {
-    activeMemberFilter = emoji;
-    items.forEach(item => {
-      if (item.getAttribute('data-emoji') === emoji) item.classList.add('active');
-      else item.classList.remove('active');
-    });
-  }
-  applyMemberFilter();
-}
-
-function applyMemberFilter() {
-  const blocks = document.querySelectorAll('.line-block');
-  blocks.forEach(block => {
-    const member = block.getAttribute('data-member');
-    if (!activeMemberFilter || member === activeMemberFilter) {
-      block.style.opacity = '1';
-    } else {
-      block.style.opacity = '0.35';
-    }
+  activeMemberFilter = (activeMemberFilter === emoji) ? null : emoji;
+  document.querySelectorAll('.member-key-item').forEach(item => {
+    if (item.getAttribute('data-emoji') === emoji && activeMemberFilter) item.classList.add('active');
+    else item.classList.remove('active');
+  });
+  document.querySelectorAll('.line-block').forEach(block => {
+    block.style.opacity = (!activeMemberFilter || block.getAttribute('data-member') === activeMemberFilter) ? '1' : '0.35';
   });
 }
 
 function updateMemberColumn(showMember) {
-  const blocks = document.querySelectorAll('.line-block');
   let lastMemberSeen = null;
-
-  blocks.forEach(block => {
+  document.querySelectorAll('.line-block').forEach(block => {
     const col = block.querySelector('.member-col');
     if (!col) return;
-    
     const member = block.getAttribute('data-member') || '';
-    
     if (showMember) {
       col.style.display = 'block';
       if (member && member !== lastMemberSeen) {
@@ -463,94 +376,37 @@ function updateMemberColumn(showMember) {
   });
 }
 
-// 8. VIEW & TOGGLE CONTROLLER
 function updateView() {
-  const showMemberEl = document.getElementById('showMember');
-  const showChordsEl = document.getElementById('showChords');
-  const showHangulEl = document.getElementById('showHangul');
-  const showRomanEl = document.getElementById('showRoman');
-  const showEnglishEl = document.getElementById('showEnglish');
-
-  const memberOn = showMemberEl ? showMemberEl.checked : true;
-  const chordsOn = showChordsEl ? showChordsEl.checked : true;
-  const hangulOn = showHangulEl ? showHangulEl.checked : true;
-  const romanOn = showRomanEl ? showRomanEl.checked : true;
-  const englishOn = showEnglishEl ? showEnglishEl.checked : true;
+  const memberOn = document.getElementById('showMember').checked;
+  const chordsOn = document.getElementById('showChords').checked;
+  const hangulOn = document.getElementById('showHangul').checked;
+  const romanOn = document.getElementById('showRoman').checked;
+  const englishOn = document.getElementById('showEnglish').checked;
 
   const keyContainer = document.getElementById('memberKeyContainer');
-  if (keyContainer) {
-    if (memberOn) keyContainer.classList.remove('hidden');
-    else {
-      keyContainer.classList.add('hidden');
-      if (activeMemberFilter) toggleMemberFilter(activeMemberFilter);
-    }
-  }
+  const divider = document.querySelector('.control-divider');
+  if (keyContainer) keyContainer.classList.toggle('hidden', !memberOn);
+  if (divider) divider.classList.toggle('hidden', !memberOn);
 
-  const transWidget = document.getElementById('transposeWidget');
-  if (transWidget) {
-    const chordPill = showChordsEl ? (showChordsEl.closest('.toggle-pill') || showChordsEl.parentElement) : null;
-    if (chordsOn && (!chordPill || !chordPill.classList.contains('hidden'))) {
-      transWidget.classList.remove('hidden');
-    } else {
-      transWidget.classList.add('hidden');
-    }
-  }
-
-  const blocks = document.querySelectorAll('.line-block');
-  blocks.forEach(block => {
+  document.querySelectorAll('.line-block').forEach(block => {
     const isChordOnly = block.getAttribute('data-chord-only') === 'true';
-
-    if (isChordOnly && !chordsOn) {
-      block.classList.add('hidden');
+    if (isChordOnly) {
+      block.classList.toggle('hidden', !chordsOn);
       return;
-    } else if (isChordOnly && chordsOn) {
-      block.classList.remove('hidden');
     }
-
+    
     const hangulEl = block.querySelector('.hangul');
     const romanEl = block.querySelector('.romanized');
     const englishEl = block.querySelector('.english');
-    const chordOnlyEl = block.querySelector('.chord-only-line');
 
-    if (hangulEl) hangulEl.classList.remove('hidden');
-    if (romanEl) romanEl.classList.remove('hidden');
-    if (englishEl) englishEl.classList.remove('hidden');
-    if (chordOnlyEl) chordOnlyEl.classList.remove('hidden');
-
-    if (hangulEl && !hangulOn) hangulEl.classList.add('hidden');
-    if (romanEl && !romanOn) romanEl.classList.add('hidden');
-    if (englishEl && !englishOn) englishEl.classList.add('hidden');
-
-    let dynamicSeenTexts = new Set();
-    const checkVisibilityPriority = (el, toggleActive) => {
-      if (!el || el.classList.contains('hidden')) return;
-      if (toggleActive) {
-        const rawCleanText = stripChordTags(el.innerHTML).trim();
-        if (dynamicSeenTexts.has(rawCleanText) && rawCleanText !== "") {
-          el.classList.add('hidden');
-        } else {
-          dynamicSeenTexts.add(rawCleanText);
-        }
-      }
-    };
-    checkVisibilityPriority(hangulEl, hangulOn);
-    checkVisibilityPriority(romanEl, romanOn);
-    checkVisibilityPriority(englishEl, englishOn);
+    if (hangulEl) hangulEl.classList.toggle('hidden', !hangulOn);
+    if (romanEl) romanEl.classList.toggle('hidden', !romanOn);
+    if (englishEl) englishEl.classList.toggle('hidden', !englishOn);
 
     let chordRowAssigned = false;
-    const targetLines = [hangulEl, romanEl, englishEl, chordOnlyEl];
-
-    targetLines.forEach(el => {
+    [hangulEl, romanEl, englishEl].forEach(el => {
       if (!el || el.classList.contains('hidden')) return;
-
       const inlineChords = el.querySelectorAll('.inline-chord');
-      const highlightedSyllables = el.querySelectorAll('.highlighted-syllable-marker');
-
-      highlightedSyllables.forEach(s => {
-        if (chordsOn) s.className = 'highlighted-syllable';
-        else s.className = '';
-      });
-
       if (chordsOn && !chordRowAssigned && inlineChords.length > 0) {
         inlineChords.forEach(c => c.classList.remove('hidden'));
         chordRowAssigned = true;
@@ -560,40 +416,8 @@ function updateView() {
     });
 
     const visibleLines = block.querySelectorAll('.lyric-line:not(.hidden)');
-    if (visibleLines.length === 0) {
-      block.classList.add('hidden');
-    } else {
-      block.classList.remove('hidden');
-    }
+    block.classList.toggle('hidden', visibleLines.length === 0);
   });
 
-  const container = document.getElementById('lyricsContainer');
-  if (container) {
-    const children = Array.from(container.children);
-    let currentHeader = null;
-    let hasVisibleBlocks = false;
-
-    children.forEach(child => {
-      if (child.classList.contains('section-header')) {
-        if (currentHeader) {
-          if (hasVisibleBlocks) currentHeader.classList.remove('hidden');
-          else currentHeader.classList.add('hidden');
-        }
-        currentHeader = child;
-        hasVisibleBlocks = false;
-      } else if (child.classList.contains('line-block')) {
-        if (!child.classList.contains('hidden')) {
-          hasVisibleBlocks = true;
-        }
-      }
-    });
-
-    if (currentHeader) {
-      if (hasVisibleBlocks) currentHeader.classList.remove('hidden');
-      else currentHeader.classList.add('hidden');
-    }
-  }
-
   updateMemberColumn(memberOn);
-  applyMemberFilter();
 }
