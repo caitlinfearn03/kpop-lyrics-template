@@ -52,7 +52,6 @@ function changeFontSize(amount) {
   document.documentElement.style.setProperty('--base-font-scale', currentFontScale);
   const label = document.getElementById('fontSizeLabel');
   if (label) label.textContent = Math.round(currentFontScale * 100) + '%';
-  updateView();
 }
 
 function toggleAutoScroll() {
@@ -425,6 +424,11 @@ function updateView() {
 
     const visibleLines = block.querySelectorAll('.lyric-line:not(.hidden)');
     block.classList.toggle('hidden', visibleLines.length === 0);
+
+    // Dynamic check: apply top padding offset to member-col ONLY if top visible line currently has visible chords
+    const firstVisibleLine = block.querySelector('.lyric-line:not(.hidden)');
+    const hasChordsOnTop = firstVisibleLine && chordsOn && firstVisibleLine.querySelectorAll('.inline-chord:not(.hidden)').length > 0;
+    block.classList.toggle('has-top-chords', Boolean(hasChordsOnTop));
   });
 
   updateMemberColumn(memberOn);
