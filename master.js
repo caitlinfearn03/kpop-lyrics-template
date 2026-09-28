@@ -175,7 +175,6 @@ function isChordOnlyText(str) {
 function processInlineChords(text) {
   if (!text) return "";
   
-  // If line contains no bracketed chords, return plain wrapped lyric text without blank line space above
   if (!text.includes('[')) {
     return `<span class="lyric-text" style="white-space: normal; word-break: break-word;">${text}</span>`;
   }
@@ -266,8 +265,10 @@ function buildLyrics() {
   if (typeof songData === 'undefined') return;
 
   lyricsContainer.innerHTML = '';
-  headerContainer.innerHTML = '';
-  headerContainer.style.textAlign = 'center';
+  
+  // Remove previously generated dynamic title, artist, and key items without destroying toolbar controls
+  const oldDynamicHeaders = headerContainer.querySelectorAll('.song-title, .song-artist, .member-key-container');
+  oldDynamicHeaders.forEach(el => el.remove());
 
   let hasMember = false, hasChords = false, hasHangul = false, hasRoman = false, hasEnglish = false;
   let keyString = "";
@@ -293,7 +294,6 @@ function buildLyrics() {
       else if (line.startsWith('R:')) { roman = line.replace('R:', '').trim(); hasRoman = true; }
       else if (line.startsWith('E:')) { english = line.replace('E:', '').trim(); hasEnglish = true; }
       else if (line && !line.includes(':')) {
-        // Fallback for unlabeled lines
         if (!hangul) hangul = line;
         else if (!roman) roman = line;
         else if (!english) english = line;
@@ -403,7 +403,6 @@ function buildLyrics() {
     headerContainer.appendChild(keyContainer);
   }
 
-  // Fallback defaults so controls always show if present in HTML toolbar
   configurePillVisibility('showMember', hasMember || true);
   configurePillVisibility('showChords', hasChords || true);
   configurePillVisibility('showHangul', hasHangul || true);
