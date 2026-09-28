@@ -266,7 +266,6 @@ function buildLyrics() {
 
   lyricsContainer.innerHTML = '';
   
-  // Remove previously generated dynamic title, artist, and key items without destroying toolbar controls
   const oldDynamicHeaders = headerContainer.querySelectorAll('.song-title, .song-artist, .member-key-container');
   oldDynamicHeaders.forEach(el => el.remove());
 
@@ -440,16 +439,26 @@ function applyMemberFilter() {
 
 function updateMemberColumn(showMember) {
   const blocks = document.querySelectorAll('.line-block');
+  let lastMemberSeen = null;
+
   blocks.forEach(block => {
     const col = block.querySelector('.member-col');
     if (!col) return;
+    
+    const member = block.getAttribute('data-member') || '';
+    
     if (showMember) {
       col.style.display = 'block';
-      const member = block.getAttribute('data-member') || '';
-      col.innerHTML = member ? `<span class="member-prefix">${member}:</span>` : '';
+      if (member && member !== lastMemberSeen) {
+        col.innerHTML = `<span class="member-prefix">${member}:</span>`;
+        lastMemberSeen = member;
+      } else {
+        col.innerHTML = '';
+      }
     } else {
       col.style.display = 'none';
       col.innerHTML = '';
+      if (member) lastMemberSeen = member;
     }
   });
 }
