@@ -1,5 +1,6 @@
 /* ==========================================================================
    MASTER.JS - Interactive Lyrics & Chord Viewer Engine
+   Repository: https://github.com/caitlinfearn03/kpop-lyrics-template
    ========================================================================== */
 
 // 1. STATE & CONFIGURATION
