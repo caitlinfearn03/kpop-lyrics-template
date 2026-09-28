@@ -157,41 +157,52 @@ function processInlineChords(text) {
   if (!text.includes('[')) {
     return `<span class="lyric-text">${text}</span>${trailingExtra ? `<span class="trailing-extra">${trailingExtra}</span>` : ''}`;
   }
-  
+
   let processed = text.replace(/\[([A-G][b#]?[^\]]*)\](_+)/g, (match, chord, underscores) => {
     return `[${chord}]` + ' '.repeat(underscores.length);
   });
   processed = processed.replace(/_/g, '');
-  const parts = processed.split('[');
-  let result = '<span class="chord-line-wrapper">';
 
-  for (let i = 0; i < parts.length; i++) {
-    let part = parts[i];
-    if (i === 0 && part === '') continue;
-    if (i === 0 || !part.includes(']')) {
-      result += `<span class="chord-segment"><span class="inline-chord empty"></span><span class="lyric-text">${part}</span></span>`;
-    } else {
-      const splitPart = part.split(']');
-      const chord = splitPart[0];
-      let lyricText = splitPart.slice(1).join(']');
+  let result = '<span class="chord-line-wrapper">';
+  const tokens = processed.split(/(\[[^\]]+\])/);
+
+  for (let i = 0; i < tokens.length; i++) {
+    let token = tokens[i];
+    if (!token) continue;
+
+    if (token.startsWith('[') && token.endsWith(']')) {
+      const chord = token.slice(1, -1);
       const currentChord = transposeChordName(chord, transposeSteps);
-      
-      if (lyricText.length > 0 && !/^\s/.test(lyricText)) {
-        const firstChar = lyricText.charAt(0);
-        const restText = lyricText.slice(1);
-        lyricText = `<span class="chord-highlight">${firstChar}</span>${restText}`;
+      let nextToken = tokens[i + 1] || "";
+      let chordText = "";
+
+      if (nextToken) {
+        const match = nextToken.match(/^(\S+)([\s\S]*)$/);
+        if (match) {
+          chordText = match[1];
+          tokens[i + 1] = match[2];
+        } else {
+          tokens[i + 1] = nextToken;
+        }
       }
 
-      result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${lyricText}</span></span>`;
+      let formattedText = chordText;
+      if (chordText.length > 0) {
+        const firstChar = chordText.charAt(0);
+        const restChar = chordText.slice(1);
+        formattedText = `<span class="chord-highlight">${firstChar}</span>${restChar}`;
+      }
+
+      result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${formattedText}</span></span>`;
+    } else {
+      result += `<span class="lyric-text">${token}</span>`;
     }
   }
-  
+
   result += `</span>`;
-  
   if (trailingExtra) {
     result += `<span class="trailing-extra">${trailingExtra}</span>`;
   }
-  
   return result;
 }
 
@@ -331,7 +342,7 @@ function buildLyrics() {
 
       blockDiv.innerHTML = `
         <div class="member-col"></div>
-        <div class="content-col" style="max-width: 100%; overflow-wrap: break-word; word-break: break-word;">
+        <div class="content-col">
           ${chordOnly ? `<div class="lyric-line chord-only-line">${processInlineChords(chordOnly)}</div>` : ''}
           ${hangul ? `<div class="lyric-line hangul">${processInlineChords(hangul)}</div>` : ''}
           ${roman ? `<div class="lyric-line romanized">${processInlineChords(roman)}</div>` : ''}
@@ -425,7 +436,6 @@ function updateView() {
     const visibleLines = block.querySelectorAll('.lyric-line:not(.hidden)');
     block.classList.toggle('hidden', visibleLines.length === 0);
 
-    // Dynamic check: apply top padding offset to member-col ONLY if top visible line currently has visible chords
     const firstVisibleLine = block.querySelector('.lyric-line:not(.hidden)');
     const hasChordsOnTop = firstVisibleLine && chordsOn && firstVisibleLine.querySelectorAll('.inline-chord:not(.hidden)').length > 0;
     block.classList.toggle('has-top-chords', Boolean(hasChordsOnTop));
