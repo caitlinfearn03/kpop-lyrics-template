@@ -4,12 +4,17 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #ffffff !important; /* Added to force a white background */
+  background-color: #ffffff !important;
   color: #333 !important;
   line-height: 1.6;
   margin: 0;
   padding: 15px;
   padding-bottom: 90px; /* Space for the sticky footer */
+  font-size: 16px; /* Fixed size for body and controls */
+}
+
+/* --- Lyrics Container (Font Scaling Scope) --- */
+#lyricsContainer {
   font-size: calc(16px * var(--base-font-scale));
 }
 
@@ -105,13 +110,34 @@ body {
   flex-shrink: 0;
   font-weight: bold;
   color: #8e44ad;
-  padding-top: 1.2em; /* Aligns member emoji with lyrics, below the chords */
+  padding-top: 0; /* Align dynamically with top visible lyric text */
+  line-height: 1.4;
+}
+
+/* Offset member emoji only when the top line has chords visible */
+.line-block.has-top-chords .member-col {
+  padding-top: 1.3em;
 }
 
 .content-col {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
+}
+
+/* --- Lyric Styles --- */
+.lyric-line.hangul {
+  font-weight: bold;
+}
+
+.lyric-line.romanized {
+  font-weight: normal;
+  font-style: normal;
+}
+
+.lyric-line.english {
+  font-size: 0.9em;
+  font-style: italic;
 }
 
 /* --- Chords Formatting --- */
@@ -130,7 +156,7 @@ body {
 }
 
 .inline-chord {
-  position: static !important; /* Changed from absolute to stop chords from squishing */
+  position: static !important;
   display: block !important;
   color: #8e44ad;
   font-weight: bold;
@@ -152,15 +178,14 @@ body {
 
 .chord-only-line {
   display: flex !important;
-  flex-wrap: wrap !important; /* Changed to wrap so lines don't break off-screen */
-  align-items: flex-end !important; 
+  flex-wrap: wrap !important;
+  align-items: flex-end !important;
 }
 
 .chord-only-line .chord-segment {
-  margin-right: 12px !important; /* Restores spacing between standalone chords */
+  margin-right: 12px !important;
 }
 
-/* Added to align trailing repeats like (x2) properly */
 .trailing-extra {
   display: inline-block !important;
   align-self: flex-end !important;
