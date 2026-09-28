@@ -118,6 +118,13 @@ body {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
+  max-width: 100%;
+}
+
+.lyric-line {
+  line-height: 2.2;
+  word-break: normal !important;
+  hyphens: none !important;
 }
 
 .lyric-line.hangul {
@@ -135,17 +142,15 @@ body {
 }
 
 .chord-line-wrapper {
-  display: inline-flex !important;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  line-height: 1.2;
+  display: inline !important;
+  line-height: 2.2 !important;
 }
 
 .chord-segment {
   display: inline-flex !important;
   flex-direction: column !important;
-  white-space: pre-wrap !important;
   vertical-align: bottom !important;
+  white-space: nowrap !important;
 }
 
 .inline-chord {
@@ -155,13 +160,17 @@ body {
   font-weight: bold;
   font-size: 0.85em;
   white-space: nowrap;
-  margin-bottom: 2px !important;
+  margin-bottom: -0.2em !important;
   min-height: 1.2em;
+  line-height: 1 !important;
 }
 
 .lyric-text {
   display: inline !important;
   letter-spacing: normal !important;
+  white-space: pre-wrap !important;
+  word-break: normal !important;
+  hyphens: none !important;
 }
 
 .chord-highlight {
@@ -173,10 +182,8 @@ body {
   display: flex !important;
   flex-wrap: wrap !important;
   align-items: flex-end !important;
-}
-
-.chord-only-line .chord-segment {
-  margin-right: 12px !important;
+  gap: 12px !important;
+  line-height: 1.6 !important;
 }
 
 .trailing-extra {
