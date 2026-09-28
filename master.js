@@ -175,6 +175,11 @@ function isChordOnlyText(str) {
 function processInlineChords(text) {
   if (!text) return "";
   
+  // If line contains no bracketed chords, return plain wrapped lyric text without blank line space above
+  if (!text.includes('[')) {
+    return `<span class="lyric-text" style="white-space: normal; word-break: break-word;">${text}</span>`;
+  }
+  
   let processed = text.replace(/\[([A-G][b#]?[^\]]*)\](_+)/g, (match, chord, underscores) => {
     const spaces = '&nbsp;'.repeat(underscores.length);
     return `[${chord}]${spaces}`;
@@ -182,14 +187,14 @@ function processInlineChords(text) {
   
   processed = processed.replace(/_/g, '');
   const parts = processed.split('[');
-  let result = '';
+  let result = '<span class="chord-line-wrapper" style="display: inline-flex; flex-wrap: wrap; max-width: 100%; word-break: break-word;">';
 
   for (let i = 0; i < parts.length; i++) {
     let part = parts[i];
     if (i === 0 && part === '') continue;
 
     if (i === 0 || !part.includes(']')) {
-      result += `<span class="chord-segment"><span class="inline-chord empty"></span><span class="lyric-text">${part}</span></span>`;
+      result += `<span class="chord-segment" style="display: inline-flex; flex-direction: column; white-space: normal;"><span class="inline-chord empty"></span><span class="lyric-text">${part}</span></span>`;
     } else {
       const splitPart = part.split(']');
       const chord = splitPart[0];
@@ -199,8 +204,8 @@ function processInlineChords(text) {
       const annotationMatch = lyricText.match(/^(\s*)([\(\[\{].*?[\)\]\}]|\bx\d+\b)(.*)$/i);
       
       if (annotationMatch && lyricText.trim().replace(/^[\(\[\{].*?[\)\]\}]/, '').trim() === '') {
-        result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${currentChord}</span><span class="lyric-text">&nbsp;</span></span>`;
-        result += `<span class="chord-annotation">${annotationMatch[1]}${annotationMatch[2]}${annotationMatch[3]}</span>`;
+        result += `<span class="chord-segment" style="display: inline-flex; flex-direction: column; white-space: normal;"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${currentChord}</span><span class="lyric-text">&nbsp;</span></span>`;
+        result += `<span class="chord-annotation" style="white-space: normal;">${annotationMatch[1]}${annotationMatch[2]}${annotationMatch[3]}</span>`;
       } else {
         let textHtml = '';
         if (lyricText.length > 0) {
@@ -214,20 +219,22 @@ function processInlineChords(text) {
           textHtml = '&nbsp;';
         }
 
-        result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${currentChord}</span><span class="lyric-text">${textHtml}</span></span>`;
+        result += `<span class="chord-segment" style="display: inline-flex; flex-direction: column; white-space: normal;"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${currentChord}</span><span class="lyric-text">${textHtml}</span></span>`;
       }
     }
   }
+  result += '</span>';
   return result;
 }
 
 function configurePillVisibility(elementId, isAvailable) {
   const checkbox = document.getElementById(elementId);
   if (!checkbox) return;
-  const pill = checkbox.closest('.toggle-pill');
+  const pill = checkbox.closest('.toggle-pill') || checkbox.parentElement;
   if (pill) {
     if (isAvailable) {
       pill.classList.remove('hidden');
+      pill.style.display = '';
     } else {
       pill.classList.add('hidden');
       checkbox.checked = false;
@@ -244,7 +251,6 @@ function buildLyrics() {
   let headerContainer = document.getElementById('headerContainer');
   let lyricsContainer = document.getElementById('lyricsContainer');
   
-  // Auto-create missing containers if not explicit in HTML
   if (!headerContainer) {
     headerContainer = document.createElement('div');
     headerContainer.id = 'headerContainer';
@@ -286,6 +292,12 @@ function buildLyrics() {
       else if (line.startsWith('H:')) { hangul = line.replace('H:', '').trim(); hasHangul = true; }
       else if (line.startsWith('R:')) { roman = line.replace('R:', '').trim(); hasRoman = true; }
       else if (line.startsWith('E:')) { english = line.replace('E:', '').trim(); hasEnglish = true; }
+      else if (line && !line.includes(':')) {
+        // Fallback for unlabeled lines
+        if (!hangul) hangul = line;
+        else if (!roman) roman = line;
+        else if (!english) english = line;
+      }
     });
 
     if (title || artist) {
@@ -320,6 +332,9 @@ function buildLyrics() {
     }
 
     if (member) hasMember = true;
+    if (hangul) hasHangul = true;
+    if (roman) hasRoman = true;
+    if (english) hasEnglish = true;
 
     const isChordOnlyBlock = Boolean(chordOnly) || (
       (hangul || roman || english) &&
@@ -340,7 +355,7 @@ function buildLyrics() {
 
       blockDiv.innerHTML = `
         <div class="member-col"></div>
-        <div class="content-col">
+        <div class="content-col" style="max-width: 100%; overflow-wrap: break-word; word-break: break-word;">
           ${chordOnly ? `<div class="lyric-line chord-only-line">${processInlineChords(chordOnly)}</div>` : ''}
           ${hangul ? `<div class="lyric-line hangul">${processInlineChords(hangul)}</div>` : ''}
           ${roman ? `<div class="lyric-line romanized">${processInlineChords(roman)}</div>` : ''}
@@ -388,11 +403,12 @@ function buildLyrics() {
     headerContainer.appendChild(keyContainer);
   }
 
-  configurePillVisibility('showMember', hasMember);
-  configurePillVisibility('showChords', hasChords);
-  configurePillVisibility('showHangul', hasHangul);
-  configurePillVisibility('showRoman', hasRoman);
-  configurePillVisibility('showEnglish', hasEnglish);
+  // Fallback defaults so controls always show if present in HTML toolbar
+  configurePillVisibility('showMember', hasMember || true);
+  configurePillVisibility('showChords', hasChords || true);
+  configurePillVisibility('showHangul', hasHangul || true);
+  configurePillVisibility('showRoman', hasRoman || true);
+  configurePillVisibility('showEnglish', hasEnglish || true);
 }
 
 // 7. MEMBER FILTERING CONTROLLER
@@ -464,7 +480,7 @@ function updateView() {
 
   const transWidget = document.getElementById('transposeWidget');
   if (transWidget) {
-    const chordPill = showChordsEl ? showChordsEl.closest('.toggle-pill') : null;
+    const chordPill = showChordsEl ? (showChordsEl.closest('.toggle-pill') || showChordsEl.parentElement) : null;
     if (chordsOn && (!chordPill || !chordPill.classList.contains('hidden'))) {
       transWidget.classList.remove('hidden');
     } else {
