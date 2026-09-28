@@ -274,6 +274,16 @@ body {
   font-weight: 700;
 }
 
+/* Annotations like (x2), (Riff), etc. */
+.chord-annotation {
+  display: inline-block;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: calc(0.85rem * var(--base-font-scale));
+  margin-left: 6px;
+  align-self: center;
+}
+
 /* 8. CONTIGUOUS MEMBER HIGHLIGHTING */
 .line-block.member-highlighted {
   background-color: rgba(142, 36, 170, 0.12);
