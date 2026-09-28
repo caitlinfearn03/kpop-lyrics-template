@@ -155,7 +155,9 @@ function processInlineChords(text) {
     text = text.substring(0, text.length - trailingMatch[1].length);
   }
 
-  if (!text.includes('[')) return `<span class="lyric-text">${text}${trailingExtra}</span>`;
+  if (!text.includes('[')) {
+    return `<span class="lyric-text">${text}</span>${trailingExtra ? `<span class="trailing-extra">${trailingExtra}</span>` : ''}`;
+  }
   
   let processed = text.replace(/\[([A-G][b#]?[^\]]*)\](_+)/g, (match, chord, underscores) => {
     return `[${chord}]` + ' '.repeat(underscores.length);
@@ -184,7 +186,13 @@ function processInlineChords(text) {
       result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${lyricText}</span></span>`;
     }
   }
-  result += `</span>${trailingExtra}`;
+  
+  result += `</span>`;
+  
+  if (trailingExtra) {
+    result += `<span class="trailing-extra">${trailingExtra}</span>`;
+  }
+  
   return result;
 }
 
