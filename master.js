@@ -3,6 +3,8 @@
    Repository: https://github.com/caitlinfearn03/kpop-lyrics-template
    ========================================================================== */
 
+console.log("[master.js] Engine initialized.");
+
 // 1. STATE & CONFIGURATION
 let currentFontScale = 1.0;
 let isScrolling = false;
@@ -24,7 +26,7 @@ function initApp() {
     setTimeout(initApp, 50);
   } else {
     console.error("master.js error: 'songData' variable was not found. Check if song.js is linked correctly in HTML.");
-    const container = document.getElementById('lyricsContainer');
+    const container = document.getElementById('lyricsContainer') || document.body;
     if (container) {
       container.innerHTML = '<div style="color: #ff6b6b; text-align: center; padding: 2rem; font-family: sans-serif;">' +
         '<h2>Unable to load song data</h2>' +
@@ -34,7 +36,12 @@ function initApp() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', initApp);
+// Immediate execution fallback if DOMContentLoaded has already fired
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  initApp();
+} else {
+  document.addEventListener('DOMContentLoaded', initApp);
+}
 
 // 3. FONT SCALING & SMOOTH SCROLL ENGINE
 function changeFontSize(amount) {
@@ -68,9 +75,6 @@ function getPixelsPerSecond(speed) {
     return speed * 30; // Speed 1 = 30px/s, Speed 10 = 300px/s
   } else {
     // Linear scale for slow speeds:
-    // Speed  0 = 20px/s
-    // Speed -1 = 16.3px/s
-    // Speed -5 = 1.5px/s (ultra-slow crawl)
     return Math.max(1.5, 20 + (speed * 3.7));
   }
 }
@@ -193,7 +197,6 @@ function processInlineChords(text) {
       const lyricText = splitPart.slice(1).join(']');
       const currentChord = transposeChordName(chord, transposeSteps);
 
-      // Detect trailing annotations like (x2), (4x), (Riff), etc.
       const annotationMatch = lyricText.match(/^(\s*)([\(\[\{].*?[\)\]\}]|\bx\d+\b)(.*)$/i);
       
       if (annotationMatch && lyricText.trim().replace(/^[\(\[\{].*?[\)\]\}]/, '').trim() === '') {
@@ -242,7 +245,10 @@ function buildLyrics() {
   const lyricsContainer = document.getElementById('lyricsContainer');
   const headerContainer = document.getElementById('headerContainer');
   
-  if (!lyricsContainer || !headerContainer) return;
+  if (!lyricsContainer || !headerContainer) {
+    console.error("master.js error: Could not find #lyricsContainer or #headerContainer in HTML.");
+    return;
+  }
   if (typeof songData === 'undefined') return;
 
   lyricsContainer.innerHTML = '';
@@ -304,7 +310,6 @@ function buildLyrics() {
 
     if (member) hasMember = true;
 
-    // Detect if this line/block is purely chords with no lyrics
     const isChordOnlyBlock = Boolean(chordOnly) || (
       (hangul || roman || english) &&
       isChordOnlyText(hangul) &&
@@ -423,7 +428,7 @@ function updateMemberColumn(showMember) {
   });
 }
 
-// 8. VIEW & TOGGLE CONTROLLER (Resilient to missing HTML elements)
+// 8. VIEW & TOGGLE CONTROLLER
 function updateView() {
   const showMemberEl = document.getElementById('showMember');
   const showChordsEl = document.getElementById('showChords');
@@ -431,7 +436,6 @@ function updateView() {
   const showRomanEl = document.getElementById('showRoman');
   const showEnglishEl = document.getElementById('showEnglish');
 
-  // Fallbacks so missing DOM elements don't cause JavaScript exceptions
   const memberOn = showMemberEl ? showMemberEl.checked : true;
   const chordsOn = showChordsEl ? showChordsEl.checked : true;
   const hangulOn = showHangulEl ? showHangulEl.checked : true;
@@ -461,7 +465,6 @@ function updateView() {
   blocks.forEach(block => {
     const isChordOnly = block.getAttribute('data-chord-only') === 'true';
 
-    // Hide chord-only blocks completely if Chords toggle is OFF
     if (isChordOnly && !chordsOn) {
       block.classList.add('hidden');
       return;
@@ -483,7 +486,6 @@ function updateView() {
     if (romanEl && !romanOn) romanEl.classList.add('hidden');
     if (englishEl && !englishOn) englishEl.classList.add('hidden');
 
-    // Hide duplicate language lines if prioritized
     let dynamicSeenTexts = new Set();
     const checkVisibilityPriority = (el, toggleActive) => {
       if (!el || el.classList.contains('hidden')) return;
@@ -530,7 +532,6 @@ function updateView() {
     }
   });
 
-  // Automatically hide empty section headers when all inner lines are hidden
   const container = document.getElementById('lyricsContainer');
   if (container) {
     const children = Array.from(container.children);
