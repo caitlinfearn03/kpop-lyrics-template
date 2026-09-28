@@ -1,77 +1,24 @@
-/* master.js */
+/* ==========================================================================
+   MASTER.JS - Interactive Lyrics & Chord Viewer Engine
+   ========================================================================== */
 
 // 1. STATE & CONFIGURATION
-let currentKeyOffset = 0;
 let currentFontScale = 1.0;
-let scrollInterval = null;
 let isScrolling = false;
-let scrollSpeed = 1;
-let activeMemberFilter = null;
+let scrollSpeed = 0;
 let scrollAnimationFrame = null;
 let lastScrollTimestamp = null;
 let currentScrollY = 0;
+let transposeSteps = 0;
+let activeMemberFilter = null;
 
-const scaleSharps = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const scaleFlats  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+// 2. INITIALIZATION
+document.addEventListener('DOMContentLoaded', () => {
+  buildLyrics();
+  updateView();
+});
 
-const chordFormulae = {
-  '': [0, 4, 7], 'm': [0, 3, 7], '7': [0, 4, 7, 10], 'm7': [0, 3, 7, 10], 
-  'maj7': [0, 4, 7, 11], 'sus4': [0, 5, 7], '7sus4': [0, 5, 7, 10], 
-  'dim': [0, 3, 6], 'aug': [0, 4, 8], '6': [0, 4, 7, 9], 'm6': [0, 3, 7, 9]
-};
-
-// 2. INJECT UI FRAMEWORK SAFELY
-function injectUI() {
-  if (document.getElementById('lyricsContainer')) return; 
-  
-  const uiHTML = `
-<div class="song-header-container" id="headerContainer"></div>
-
-<div class="controls">
-  <label class="toggle-pill"><input type="checkbox" id="showMember" checked onchange="updateView()"> Member</label>
-  <label class="toggle-pill"><input type="checkbox" id="showChords" checked onchange="updateView()"> Chords</label>
-  <label class="toggle-pill"><input type="checkbox" id="showHangul" checked onchange="updateView()"> Hangul</label>
-  <label class="toggle-pill"><input type="checkbox" id="showRoman" checked onchange="updateView()"> Easy Romanized</label>
-  <label class="toggle-pill"><input type="checkbox" id="showEnglish" checked onchange="updateView()"> English</label>
-  
-  <div class="utility-widget" id="transposeWidget">
-    <span class="utility-label">KEY:</span>
-    <button class="btn-utility" onclick="changeKey(-1)">−</button>
-    <span class="utility-val" id="keyOffset">0</span>
-    <button class="btn-utility" onclick="changeKey(1)">+</button>
-  </div>
-
-  <div class="utility-widget">
-    <span class="utility-label">FONT:</span>
-    <button class="btn-utility" onclick="changeFontSize(-0.1)">−</button>
-    <span class="utility-val" id="fontSizeLabel">100%</span>
-    <button class="btn-utility" onclick="changeFontSize(0.1)">+</button>
-  </div>
-</div>
-
-<div class="lyrics-container" id="lyricsContainer"></div>
-<div class="embed-footer-spacer"></div>
-
-<div class="scroll-dock">
-  <button class="btn-scroll-toggle" id="scrollBtn" onclick="toggleAutoScroll()">SCROLL</button>
-  <div class="utility-widget">
-    <span class="utility-label">SPEED:</span>
-    <button class="btn-utility" onclick="changeScrollSpeed(-1)">−</button>
-    <span class="utility-val" id="scrollSpeedLabel">1</span>
-    <button class="btn-utility" onclick="changeScrollSpeed(1)">+</button>
-  </div>
-</div>
-
-<div class="chord-modal-overlay" id="modalOverlay" onclick="closeChordModal()"></div>
-<div class="chord-modal" id="chordModal">
-  <div class="chord-modal-title" id="modalTitle">C Major</div>
-  <div id="pianoContainer"></div>
-</div>
-  `;
-  document.body.insertAdjacentHTML('afterbegin', uiHTML);
-}
-
-// 3. FONT & SCROLL FUNCTIONS
+// 3. FONT SCALING & SMOOTH SCROLL ENGINE
 function changeFontSize(amount) {
   currentFontScale = Math.max(0.6, Math.min(2.0, currentFontScale + amount));
   document.documentElement.style.setProperty('--base-font-scale', currentFontScale);
@@ -115,7 +62,7 @@ function getPixelsPerSecond(speed) {
 function startScrollEngine() {
   if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame);
   
-  // Sync starting position with current window position
+  // Sync starting position with current window Y position
   currentScrollY = window.scrollY;
 
   function scrollStep(timestamp) {
@@ -125,7 +72,7 @@ function startScrollEngine() {
     const deltaTime = (timestamp - lastScrollTimestamp) / 1000; // seconds elapsed
     lastScrollTimestamp = timestamp;
 
-    // Resync tracker if the user manually scrolls or drags the scrollbar
+    // Resync tracker if user manually scrolls or drags scrollbar
     if (Math.abs(window.scrollY - currentScrollY) > 8) {
       currentScrollY = window.scrollY;
     }
@@ -133,10 +80,10 @@ function startScrollEngine() {
     const pixelsPerSecond = getPixelsPerSecond(scrollSpeed);
     currentScrollY += pixelsPerSecond * deltaTime;
 
-    // Scroll using floating-point precision
+    // Scroll using floating-point sub-pixel precision
     window.scrollTo(0, currentScrollY);
 
-    // Stop automatically at bottom of page
+    // Stop automatically when reaching the bottom of the page
     if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 2) {
       toggleAutoScroll();
       return;
@@ -155,74 +102,61 @@ function changeScrollSpeed(amount) {
   if (label) label.textContent = scrollSpeed;
 }
 
-// 4. CHORD DIAGRAM MODAL
-function showChordDiagram(chordName) {
-  if (!chordName) return;
-  const modal = document.getElementById('chordModal');
-  const overlay = document.getElementById('modalOverlay');
-  const title = document.getElementById('modalTitle');
-  const container = document.getElementById('pianoContainer');
-  if (!modal || !overlay || !title || !container) return;
-  
-  title.textContent = chordName;
-  
-  const chordMatch = chordName.match(/^([A-G][b#]?)(.*)$/);
-  if (!chordMatch) return;
-  
-  let rootNote = chordMatch[1];
-  let extension = chordMatch[2];
-  
-  if (extension.includes('/')) extension = extension.split('/')[0];
-  if (extension === 'M') extension = '';
-  if (extension === 'min') extension = 'm';
-  
-  let rootIndex = scaleSharps.indexOf(rootNote);
-  if (rootIndex === -1) rootIndex = scaleFlats.indexOf(rootNote);
-  
-  let activeIntervals = chordFormulae[extension] || chordFormulae['']; 
-  let absoluteKeysToHighlight = activeIntervals.map(interval => (rootIndex + interval) % 12);
+// 4. CHORD TRANSPOSITION ENGINE
+const CHROMATIC_SCALE_SHARPS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const CHROMATIC_SCALE_FLATS  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
-  const whiteKeyPitches = [0, 2, 4, 5, 7, 9, 11, 0, 2, 4, 5, 7, 9, 11];
-  const blackKeysConfig = [
-    { pitch: 1, leftOffset: 18 },  { pitch: 3, leftOffset: 48 },  
-    { pitch: 6, leftOffset: 108 }, { pitch: 8, leftOffset: 138 }, 
-    { pitch: 10, leftOffset: 168 }, { pitch: 1, leftOffset: 228 }, 
-    { pitch: 3, leftOffset: 258 }  
-  ];
+function transposeChordName(chordName, steps) {
+  if (steps === 0) return chordName;
+  const rootMatch = chordName.match(/^([A-G][b#]?)(.*)/);
+  if (!rootMatch) return chordName;
 
-  let svgHtml = `<svg class="keyboard-svg" viewBox="0 0 420 150" xmlns="http://www.w3.org/2000/svg">`;
+  const root = rootMatch[1];
+  const suffix = rootMatch[2];
 
-  for (let i = 0; i < 14; i++) {
-    let currentPitch = whiteKeyPitches[i];
-    let isLit = absoluteKeysToHighlight.includes(currentPitch);
-    let keyColor = isLit ? (currentPitch === rootIndex ? '#8e24aa' : '#ce93d8') : '#ffffff';
-    svgHtml += `<rect x="${i * 30}" y="0" width="30" height="150" fill="${keyColor}" stroke="#202124" stroke-width="1.5" rx="2" />`;
+  let index = CHROMATIC_SCALE_SHARPS.indexOf(root);
+  if (index === -1) {
+    index = CHROMATIC_SCALE_FLATS.indexOf(root);
+  }
+  if (index === -1) return chordName;
+
+  let newIndex = (index + steps) % 12;
+  if (newIndex < 0) newIndex += 12;
+
+  const useFlats = root.includes('b') || chordName.includes('b');
+  const scale = useFlats ? CHROMATIC_SCALE_FLATS : CHROMATIC_SCALE_SHARPS;
+  return scale[newIndex] + suffix;
+}
+
+function transpose(stepsDelta) {
+  transposeSteps += stepsDelta;
+  const label = document.getElementById('transposeLabel');
+  if (label) {
+    label.textContent = (transposeSteps > 0 ? '+' : '') + transposeSteps;
   }
 
-  blackKeysConfig.forEach(bk => {
-    let isLit = absoluteKeysToHighlight.includes(bk.pitch);
-    let keyColor = isLit ? (bk.pitch === rootIndex ? '#6a1b9a' : '#ba68c8') : '#202124';
-    svgHtml += `<rect x="${bk.leftOffset}" y="0" width="18" height="95" fill="${keyColor}" stroke="#202124" stroke-width="1" rx="2" />`;
+  const chords = document.querySelectorAll('.inline-chord');
+  chords.forEach(chordEl => {
+    const orig = chordEl.getAttribute('data-original-chord');
+    if (orig) {
+      chordEl.textContent = transposeChordName(orig, transposeSteps);
+    }
   });
-
-  svgHtml += `</svg>`;
-  container.innerHTML = svgHtml;
-
-  modal.style.display = 'block';
-  overlay.classList.add('active');
-  setTimeout(() => modal.classList.add('active'), 10);
 }
 
-function closeChordModal() {
-  const modal = document.getElementById('chordModal');
-  const overlay = document.getElementById('modalOverlay');
-  if (!modal || !overlay) return;
-  modal.classList.remove('active');
-  overlay.classList.remove('active');
-  setTimeout(() => modal.style.display = 'none', 200);
+// 5. HELPER UTILITIES & CHORD PARSER
+function stripChordTags(htmlStr) {
+  return htmlStr.replace(/<[^>]*>/g, '').trim();
 }
 
-// 5. CHORD PROCESSING & TRANSPOSITION
+function isChordOnlyText(str) {
+  if (!str) return true;
+  const textWithoutChords = str.replace(/\[[^\]]*\]/g, '').trim();
+  if (textWithoutChords === '') return true;
+  const annotationRegex = /^[\(\[\{]?\s*(x\d+\vert{}\d+x\vert{}x\s*\d+\vert{}riff\vert{}repeat\vert{}x2\vert{}x4\vert{}outro\vert{}intro\vert{}solo\vert{}instrumental\vert{}\d+)\s*[\)\]\}]?$/i;
+  return annotationRegex.test(textWithoutChords);
+}
+
 function processInlineChords(text) {
   if (!text) return "";
   
@@ -245,127 +179,53 @@ function processInlineChords(text) {
       const splitPart = part.split(']');
       const chord = splitPart[0];
       const lyricText = splitPart.slice(1).join(']');
+      const currentChord = transposeChordName(chord, transposeSteps);
 
-      let textHtml = '';
-      if (lyricText.length > 0) {
-        let firstChar = lyricText.charAt(0);
-        if (firstChar !== ' ' && !firstChar.startsWith('&')) {
-          textHtml = `<span class="highlighted-syllable-marker">${firstChar}</span>${lyricText.slice(1)}`;
+      const annotationMatch = lyricText.match(/^(\s*)([\(\[\{].*?[\)\]\}]|\bx\d+\b)(.*)$/i);
+      
+      if (annotationMatch && lyricText.trim().replace(/^[\(\[\{].*?[\)\]\}]/, '').trim() === '') {
+        result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${currentChord}</span><span class="lyric-text">&nbsp;</span></span>`;
+        result += `<span class="chord-annotation">${annotationMatch[1]}${annotationMatch[2]}${annotationMatch[3]}</span>`;
+      } else {
+        let textHtml = '';
+        if (lyricText.length > 0) {
+          let firstChar = lyricText.charAt(0);
+          if (firstChar !== ' ' && !firstChar.startsWith('&')) {
+            textHtml = `<span class="highlighted-syllable-marker">${firstChar}</span>${lyricText.slice(1)}`;
+          } else {
+            textHtml = lyricText;
+          }
         } else {
-          textHtml = lyricText;
+          textHtml = '&nbsp;';
         }
-      }
 
-      result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${chord}</span><span class="lyric-text">${textHtml}</span></span>`;
+        result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}" onclick="showChordDiagram(this.textContent)">${currentChord}</span><span class="lyric-text">${textHtml}</span></span>`;
+      }
     }
   }
   return result;
 }
 
-function stripChordTags(htmlStr) {
-  const doc = new DOMParser().parseFromString(htmlStr, 'text/html');
-  const chords = doc.querySelectorAll('.inline-chord');
-  chords.forEach(c => c.remove());
-  return doc.body.textContent || "";
-}
-
-function changeKey(steps) {
-  currentKeyOffset += steps;
-  const keyOffsetEl = document.getElementById('keyOffset');
-  if (keyOffsetEl) keyOffsetEl.textContent = (currentKeyOffset > 0 ? '+' : '') + currentKeyOffset;
-  const chordElements = document.querySelectorAll('.inline-chord[data-original-chord]');
-  chordElements.forEach(el => {
-    const original = el.getAttribute('data-original-chord');
-    el.textContent = transposeLine(original, currentKeyOffset);
-  });
-}
-
-function transposeLine(text, steps) {
-  if (steps === 0) return text;
-  const chordRegex = /[A-G][b#]?/g;
-  return text.replace(chordRegex, (match) => shiftNote(match, steps));
-}
-
-function shiftNote(note, steps) {
-  let index = scaleSharps.indexOf(note);
-  if (index === -1) index = scaleFlats.indexOf(note);
-  if (index === -1) return note;
-  let newIndex = (index + steps) % 12;
-  if (newIndex < 0) newIndex += 12;
-  return scaleSharps[newIndex];
-}
-
-// 6. MEMBER HIGHLIGHT FILTERING ENGINE
-function toggleMemberFilter(emoji) {
-  if (activeMemberFilter === emoji) {
-    activeMemberFilter = null; 
-  } else {
-    activeMemberFilter = emoji;
-  }
-
-  document.querySelectorAll('.member-key-item').forEach(item => {
-    if (activeMemberFilter && item.getAttribute('data-emoji') === activeMemberFilter) {
-      item.classList.add('active');
+function configurePillVisibility(elementId, isAvailable) {
+  const checkbox = document.getElementById(elementId);
+  if (!checkbox) return;
+  const pill = checkbox.closest('.toggle-pill');
+  if (pill) {
+    if (isAvailable) {
+      pill.classList.remove('hidden');
     } else {
-      item.classList.remove('active');
+      pill.classList.add('hidden');
+      checkbox.checked = false;
     }
-  });
-
-  applyMemberFilter();
+  }
 }
 
-function applyMemberFilter() {
-  const blocks = Array.from(document.querySelectorAll('.line-block'));
-
-  blocks.forEach(block => {
-    const memberAttr = block.getAttribute('data-member') || "";
-    let isMatch = false;
-    if (activeMemberFilter) {
-      const isAll = memberAttr.toUpperCase().includes("ALL");
-      isMatch = memberAttr.includes(activeMemberFilter) || isAll;
-    }
-    block.dataset.isMatch = isMatch ? "true" : "false";
-  });
-
-  blocks.forEach(block => {
-    block.classList.remove(
-      'member-highlighted',
-      'member-dimmed',
-      'highlight-start',
-      'highlight-middle',
-      'highlight-end',
-      'highlight-only'
-    );
-
-    if (activeMemberFilter) {
-      const isMatch = block.dataset.isMatch === "true";
-
-      if (isMatch) {
-        block.classList.add('member-highlighted');
-
-        const prevSib = block.previousElementSibling;
-        const nextSib = block.nextElementSibling;
-
-        const prevMatch = prevSib && prevSib.classList.contains('line-block') && prevSib.dataset.isMatch === "true";
-        const nextMatch = nextSib && nextSib.classList.contains('line-block') && nextSib.dataset.isMatch === "true";
-
-        if (!prevMatch && nextMatch) {
-          block.classList.add('highlight-start');
-        } else if (prevMatch && nextMatch) {
-          block.classList.add('highlight-middle');
-        } else if (prevMatch && !nextMatch) {
-          block.classList.add('highlight-end');
-        } else {
-          block.classList.add('highlight-only');
-        }
-      } else {
-        block.classList.add('member-dimmed');
-      }
-    }
-  });
+function showChordDiagram(chord) {
+  // Optional callback hook for chord diagram modal triggers
+  console.log('Chord clicked:', chord);
 }
 
-// 7. SONG DATA PARSER & DOM BUILDER
+// 6. SONG DATA PARSER & DOM BUILDER
 function buildLyrics() {
   const lyricsContainer = document.getElementById('lyricsContainer');
   const headerContainer = document.getElementById('headerContainer');
@@ -386,7 +246,7 @@ function buildLyrics() {
     const lines = blockStr.trim().split('\n');
     let title = "", artist = "";
     let section = "", member = "";
-    let hangul = "", roman = "", english = "";
+    let hangul = "", roman = "", english = "", chordOnly = "";
 
     lines.forEach(l => {
       const line = l.trim();
@@ -395,6 +255,7 @@ function buildLyrics() {
       else if (line.startsWith('Key:') || line.startsWith('K:')) keyString = line.replace(/^(Key:|K:)/, '').trim();
       else if (line.startsWith('S:')) section = line.replace('S:', '').trim();
       else if (line.startsWith('M:')) { member = line.replace('M:', '').trim(); }
+      else if (line.startsWith('C:')) { chordOnly = line.replace('C:', '').trim(); hasChords = true; }
       else if (line.startsWith('H:')) { hangul = line.replace('H:', '').trim(); hasHangul = true; }
       else if (line.startsWith('R:')) { roman = line.replace('R:', '').trim(); hasRoman = true; }
       else if (line.startsWith('E:')) { english = line.replace('E:', '').trim(); hasEnglish = true; }
@@ -425,22 +286,33 @@ function buildLyrics() {
 
     if (member) {
       currentMember = member;
-    } else if (hangul || roman || english) {
+    } else if (hangul || roman || english || chordOnly) {
       member = currentMember;
     }
 
     if (member) hasMember = true;
 
-    if (member || hangul || roman || english) {
+    const isChordOnlyBlock = Boolean(chordOnly) || (
+      (hangul || roman || english) &&
+      isChordOnlyText(hangul) &&
+      isChordOnlyText(roman) &&
+      isChordOnlyText(english)
+    );
+
+    if (member || hangul || roman || english || chordOnly) {
       const blockDiv = document.createElement('div');
       blockDiv.className = 'line-block';
       if (member) blockDiv.setAttribute('data-member', member);
+      if (isChordOnlyBlock) blockDiv.setAttribute('data-chord-only', 'true');
 
-      if (hangul.includes('[') || roman.includes('[') || english.includes('[')) hasChords = true;
+      if (hangul.includes('[') || roman.includes('[') || english.includes('[') || chordOnly.includes('[')) {
+        hasChords = true;
+      }
 
       blockDiv.innerHTML = `
         <div class="member-col"></div>
         <div class="content-col">
+          ${chordOnly ? `<div class="lyric-line chord-only-line">${processInlineChords(chordOnly)}</div>` : ''}
           ${hangul ? `<div class="lyric-line hangul">${processInlineChords(hangul)}</div>` : ''}
           ${roman ? `<div class="lyric-line romanized">${processInlineChords(roman)}</div>` : ''}
           ${english ? `<div class="lyric-line english">${processInlineChords(english)}</div>` : ''}
@@ -451,7 +323,6 @@ function buildLyrics() {
     }
   });
 
-  // Render Member Key Legend if provided
   if (keyString) {
     const keyContainer = document.createElement('div');
     keyContainer.className = 'member-key-container';
@@ -495,15 +366,51 @@ function buildLyrics() {
   configurePillVisibility('showEnglish', hasEnglish);
 }
 
-function configurePillVisibility(elementId, isPresent) {
-  const checkbox = document.getElementById(elementId);
-  if (!checkbox) return;
-  const pillWrapper = checkbox.closest('.toggle-pill');
-  if (isPresent) { checkbox.checked = true; pillWrapper.classList.remove('hidden'); } 
-  else { checkbox.checked = false; pillWrapper.classList.add('hidden'); }
+// 7. MEMBER FILTERING CONTROLLER
+function toggleMemberFilter(emoji) {
+  const items = document.querySelectorAll('.member-key-item');
+  if (activeMemberFilter === emoji) {
+    activeMemberFilter = null;
+    items.forEach(item => item.classList.remove('active'));
+  } else {
+    activeMemberFilter = emoji;
+    items.forEach(item => {
+      if (item.getAttribute('data-emoji') === emoji) item.classList.add('active');
+      else item.classList.remove('active');
+    });
+  }
+  applyMemberFilter();
 }
 
-// 8. VIEW CONTROLLER
+function applyMemberFilter() {
+  const blocks = document.querySelectorAll('.line-block');
+  blocks.forEach(block => {
+    const member = block.getAttribute('data-member');
+    if (!activeMemberFilter || member === activeMemberFilter) {
+      block.style.opacity = '1';
+    } else {
+      block.style.opacity = '0.35';
+    }
+  });
+}
+
+function updateMemberColumn(showMember) {
+  const blocks = document.querySelectorAll('.line-block');
+  blocks.forEach(block => {
+    const col = block.querySelector('.member-col');
+    if (!col) return;
+    if (showMember) {
+      col.style.display = 'block';
+      const member = block.getAttribute('data-member') || '';
+      col.innerHTML = member ? `<span class="member-prefix">${member}:</span>` : '';
+    } else {
+      col.style.display = 'none';
+      col.innerHTML = '';
+    }
+  });
+}
+
+// 8. VIEW & TOGGLE CONTROLLER
 function updateView() {
   const showMemberEl = document.getElementById('showMember');
   const showChordsEl = document.getElementById('showChords');
@@ -530,7 +437,8 @@ function updateView() {
 
   const transWidget = document.getElementById('transposeWidget');
   if (transWidget) {
-    if (chordsOn && !transWidget.parentNode.querySelector('#showChords').closest('.toggle-pill').classList.contains('hidden')) {
+    const chordPill = showChordsEl.closest('.toggle-pill');
+    if (chordsOn && chordPill && !chordPill.classList.contains('hidden')) {
       transWidget.classList.remove('hidden');
     } else {
       transWidget.classList.add('hidden');
@@ -539,18 +447,31 @@ function updateView() {
 
   const blocks = document.querySelectorAll('.line-block');
   blocks.forEach(block => {
+    const isChordOnly = block.getAttribute('data-chord-only') === 'true';
+
+    // Hide chord-only blocks if Chords toggle is OFF
+    if (isChordOnly && !chordsOn) {
+      block.classList.add('hidden');
+      return;
+    } else if (isChordOnly && chordsOn) {
+      block.classList.remove('hidden');
+    }
+
     const hangulEl = block.querySelector('.hangul');
     const romanEl = block.querySelector('.romanized');
     const englishEl = block.querySelector('.english');
+    const chordOnlyEl = block.querySelector('.chord-only-line');
 
     if (hangulEl) hangulEl.classList.remove('hidden');
     if (romanEl) romanEl.classList.remove('hidden');
     if (englishEl) englishEl.classList.remove('hidden');
+    if (chordOnlyEl) chordOnlyEl.classList.remove('hidden');
 
     if (hangulEl && !hangulOn) hangulEl.classList.add('hidden');
     if (romanEl && !romanOn) romanEl.classList.add('hidden');
     if (englishEl && !englishOn) englishEl.classList.add('hidden');
 
+    // Prevent duplicate lines when multilanguage toggle priority overlaps
     let dynamicSeenTexts = new Set();
     const checkVisibilityPriority = (el, toggleActive) => {
       if (!el || el.classList.contains('hidden')) return;
@@ -568,7 +489,7 @@ function updateView() {
     checkVisibilityPriority(englishEl, englishOn);
 
     let chordRowAssigned = false;
-    const targetLines = [hangulEl, romanEl, englishEl];
+    const targetLines = [hangulEl, romanEl, englishEl, chordOnlyEl];
 
     targetLines.forEach(el => {
       if (!el || el.classList.contains('hidden')) return;
@@ -588,62 +509,43 @@ function updateView() {
         inlineChords.forEach(c => c.classList.add('hidden'));
       }
     });
+
+    const visibleLines = block.querySelectorAll('.lyric-line:not(.hidden)');
+    if (visibleLines.length === 0) {
+      block.classList.add('hidden');
+    } else {
+      block.classList.remove('hidden');
+    }
   });
+
+  // Automatically hide section headers if all child lines inside that section are hidden
+  const container = document.getElementById('lyricsContainer');
+  if (container) {
+    const children = Array.from(container.children);
+    let currentHeader = null;
+    let hasVisibleBlocks = false;
+
+    children.forEach(child => {
+      if (child.classList.contains('section-header')) {
+        if (currentHeader) {
+          if (hasVisibleBlocks) currentHeader.classList.remove('hidden');
+          else currentHeader.classList.add('hidden');
+        }
+        currentHeader = child;
+        hasVisibleBlocks = false;
+      } else if (child.classList.contains('line-block')) {
+        if (!child.classList.contains('hidden')) {
+          hasVisibleBlocks = true;
+        }
+      }
+    });
+
+    if (currentHeader) {
+      if (hasVisibleBlocks) currentHeader.classList.remove('hidden');
+      else currentHeader.classList.add('hidden');
+    }
+  }
 
   updateMemberColumn(memberOn);
   applyMemberFilter();
-}
-
-function updateMemberColumn(showMember) {
-  const blocks = document.querySelectorAll('.line-block');
-  const memberCols = document.querySelectorAll('.member-col');
-  let lastMember = "";
-
-  memberCols.forEach(col => {
-    if (showMember) col.classList.remove('hidden');
-    else col.classList.add('hidden');
-  });
-
-  blocks.forEach(block => {
-    const currentMember = block.getAttribute('data-member');
-    const memberCol = block.querySelector('.member-col');
-    if (!memberCol) return;
-    memberCol.innerHTML = '';
-
-    if (showMember && currentMember) {
-      if (currentMember !== lastMember) {
-        const badge = document.createElement('span');
-        badge.className = 'member-prefix';
-        badge.textContent = currentMember + ':';
-        memberCol.appendChild(badge);
-        alignBadgeToFirstLyric(block, badge);
-      }
-      lastMember = currentMember;
-    }
-  });
-}
-
-function alignBadgeToFirstLyric(block, badge) {
-  const showChordsEl = document.getElementById('showChords');
-  const chordsOn = showChordsEl ? showChordsEl.checked : false;
-  const firstVisibleLine = block.querySelector('.lyric-line:not(.hidden)');
-  
-  if (firstVisibleLine && chordsOn && firstVisibleLine.querySelector('.inline-chord:not(.hidden)')) {
-    badge.style.marginTop = (20 * currentFontScale) + 'px'; 
-  } else {
-    badge.style.marginTop = '0px';
-  }
-}
-
-// 9. SAFE INITIALIZATION
-function initApp() {
-  injectUI();
-  buildLyrics();
-  updateView();
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initApp);
-} else {
-  initApp();
 }
