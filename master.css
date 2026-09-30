@@ -128,7 +128,6 @@ body.chords-disabled .lyric-line {
   line-height: 1.6;
 }
 
-/* Dynamic main-formatting style */
 .lyric-line.primary-lyric {
   font-weight: bold !important;
   font-style: normal !important;
@@ -156,18 +155,33 @@ body.chords-disabled .lyric-line {
 .chord-segment {
   position: relative;
   display: inline-block;
-  vertical-align: baseline;
 }
 
 .inline-chord {
   position: absolute;
-  bottom: 95%; /* Perfect height cleanly above the word without pushing spacing horizontally */
+  bottom: 95%;
   left: 0;
   color: #8e44ad;
   font-weight: bold;
   font-size: 0.85em;
   white-space: nowrap;
   line-height: 1;
+}
+
+/* Fix for segments carrying no lyric text (spaces/underscores). Places chord in-flow so they don't overlap. */
+.empty-chord-segment {
+  display: inline-block;
+}
+
+.empty-chord-segment .inline-chord {
+  position: relative;
+  bottom: auto;
+  top: -1.4em;
+  display: inline-block;
+}
+
+.empty-chord-segment .lyric-text {
+  display: inline-block;
 }
 
 .lyric-text {
@@ -183,18 +197,27 @@ body.chords-disabled .lyric-line {
   font-weight: bold;
 }
 
-/* Turns off purple letters when chords are toggled off */
 body.chords-disabled .chord-highlight {
   color: inherit !important;
   font-weight: inherit !important;
 }
 
 .chord-only-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-  line-height: 1.6;
+  display: block;
+  line-height: 1.8;
+}
+
+/* Overrides the upward shift for lines that are EXCLUSIVELY chords */
+.chord-only-line .inline-chord,
+.line-block[data-chord-only="true"] .inline-chord {
+  position: static !important;
+  top: auto !important;
+  transform: none !important;
+}
+
+.chord-only-line .empty-chord-segment,
+.line-block[data-chord-only="true"] .empty-chord-segment {
+  margin-right: 4px; 
 }
 
 .trailing-extra {
