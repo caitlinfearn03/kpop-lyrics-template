@@ -154,34 +154,18 @@ body.chords-disabled .lyric-line {
 
 .chord-segment {
   position: relative;
-  display: inline-block;
+  display: inline-block; /* Bounds the word directly below its chord so they wrap lines together */
 }
 
 .inline-chord {
   position: absolute;
-  bottom: 95%;
+  bottom: 95%; /* Perfect height cleanly above the word */
   left: 0;
   color: #8e44ad;
   font-weight: bold;
   font-size: 0.85em;
   white-space: nowrap;
   line-height: 1;
-}
-
-/* Fix for segments carrying no lyric text (spaces/underscores). Places chord in-flow so they don't overlap. */
-.empty-chord-segment {
-  display: inline-block;
-}
-
-.empty-chord-segment .inline-chord {
-  position: relative;
-  bottom: auto;
-  top: -1.4em;
-  display: inline-block;
-}
-
-.empty-chord-segment .lyric-text {
-  display: inline-block;
 }
 
 .lyric-text {
@@ -202,22 +186,17 @@ body.chords-disabled .chord-highlight {
   font-weight: inherit !important;
 }
 
-.chord-only-line {
-  display: block;
-  line-height: 1.8;
+/* Specific overrides so sections defined by 'C:' display smartly */
+.line-block[data-chord-only="true"] .chord-segment {
+  margin-right: 12px !important;
 }
-
-/* Overrides the upward shift for lines that are EXCLUSIVELY chords */
-.chord-only-line .inline-chord,
 .line-block[data-chord-only="true"] .inline-chord {
-  position: static !important;
-  top: auto !important;
-  transform: none !important;
+  position: static;
+  display: inline-block;
+  margin-bottom: 0;
 }
-
-.chord-only-line .empty-chord-segment,
-.line-block[data-chord-only="true"] .empty-chord-segment {
-  margin-right: 4px; 
+.line-block[data-chord-only="true"] .lyric-text {
+  display: none;
 }
 
 .trailing-extra {
