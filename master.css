@@ -111,10 +111,6 @@ body {
   line-height: 1.4;
 }
 
-.line-block.has-top-chords .member-col {
-  padding-top: 1.3em;
-}
-
 .content-col {
   flex-grow: 1;
   display: flex;
@@ -123,9 +119,20 @@ body {
 }
 
 .lyric-line {
-  line-height: 2.2;
+  line-height: 2.4; 
   word-break: normal;
   hyphens: none;
+}
+
+body.chords-disabled .lyric-line {
+  line-height: 1.6;
+}
+
+/* Dynamic main-formatting style */
+.lyric-line.primary-lyric {
+  font-weight: bold !important;
+  font-style: normal !important;
+  font-size: 1em !important;
 }
 
 .lyric-line.hangul {
@@ -144,25 +151,22 @@ body {
 
 .chord-line-wrapper {
   display: inline;
-  line-height: 2.2;
 }
 
 .chord-segment {
-  display: inline-flex;
-  flex-direction: column;
-  vertical-align: bottom;
-  white-space: nowrap;
+  position: relative;
+  display: inline-block;
+  vertical-align: baseline;
 }
 
 .inline-chord {
-  position: static;
-  display: block;
+  position: absolute;
+  bottom: 95%; /* Perfect height cleanly above the word without pushing spacing horizontally */
+  left: 0;
   color: #8e44ad;
   font-weight: bold;
   font-size: 0.85em;
   white-space: nowrap;
-  margin-bottom: -0.2em;
-  min-height: 1.2em;
   line-height: 1;
 }
 
@@ -177,6 +181,12 @@ body {
 .chord-highlight {
   color: #8e44ad;
   font-weight: bold;
+}
+
+/* Turns off purple letters when chords are toggled off */
+body.chords-disabled .chord-highlight {
+  color: inherit !important;
+  font-weight: inherit !important;
 }
 
 .chord-only-line {
@@ -203,16 +213,27 @@ body {
   padding: 5px 12px;
   border-radius: 20px;
   font-size: 14px;
-  cursor: pointer;
   border: none;
   text-decoration: none;
 }
 
-button {
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 3px 8px;
+.toggle-pill input[type="checkbox"] {
+  accent-color: #8e44ad;
+  width: 1.1em;
+  height: 1.1em;
+  cursor: pointer;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+
+.toggle-pill button {
+  border-radius: 12px;
+  background: #8e44ad;
+  color: #ffffff;
+  padding: 2px 8px;
   font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
 }
 
 /* --- Sticky Footer Floating Toolbar --- */
@@ -243,22 +264,20 @@ button {
   background: rgba(0, 0, 0, 0.06);
 }
 
-.sticky-footer-toolbar button {
-  background: rgba(0, 0, 0, 0.08);
-}
-
 #scrollBtn {
-  background: #8e44ad;
-  color: #ffffff;
+  background: #8e44ad !important;
+  color: #ffffff !important;
   font-weight: bold;
   padding: 6px 18px;
+  border-radius: 20px;
+  cursor: pointer;
 }
 
 #scrollBtn.active-stop {
-  background: #e74c3c;
-  color: #ffffff;
+  background: #e74c3c !important;
+  color: #ffffff !important;
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
