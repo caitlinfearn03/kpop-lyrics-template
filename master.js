@@ -152,12 +152,11 @@ function isChordOnlyText(str) {
   return /^[\(\[\{]?\s*(x\d+\vert{}\d+x\vert{}x\s*\d+\vert{}riff\vert{}repeat\vert{}x2\vert{}x4\vert{}outro\vert{}intro\vert{}solo\vert{}instrumental\vert{}\d+)\s*[\)\]\}]?$/i.test(textWithoutChords);
 }
 
-// Helper to determine string width. Korean/CJK characters are visually wider than english letters.
 function getVisualLength(str) {
   let len = 0;
   for (let i = 0; i < str.length; i++) {
     const code = str.charCodeAt(i);
-    if (code >= 0x2E80) len += 2; // Weight wide characters to ensure spacing is safe
+    if (code >= 0x2E80) len += 2;
     else len += 1;
   }
   return len;
@@ -193,29 +192,22 @@ function processInlineChords(text) {
       const chord = token.slice(1, -1);
       const currentChord = transposeChordName(chord, transposeSteps);
       
-      // Grab all text before the *next* chord appears
       let fullNextToken = tokens[i + 1] || "";
-      
-      // Calculate widths to prevent chord overlapping
       let pureFullText = fullNextToken.replace(/&nbsp;/g, ' '); 
       let visualTextLen = getVisualLength(pureFullText);
-      let chordLen = currentChord.length + 0.5; // Adding 0.5ch buffer to the chord width
+      let chordLen = currentChord.length + 0.5;
 
       let marginStyle = "";
-      // If the text underneath is SHORTER than the chord above it, it will overlap the NEXT chord.
-      // We inject a margin to dynamically push the next chord out of the way!
       if (chordLen > visualTextLen) {
         let diff = (chordLen - visualTextLen).toFixed(2);
         marginStyle = ` style="margin-right: ${diff}ch;"`;
       }
 
       let chordText = "";
-      // Split the text: keep only the first word attached to the chord for highlight/grouping.
-      // Let the rest of the sentence flow normally so it can line-break on mobile screens.
       const match = fullNextToken.match(/^((?:&nbsp;|\s)*\S+)([\s\S]*)$/);
       if (match) {
         chordText = match[1];
-        tokens[i + 1] = match[2]; // Pass the rest of the sentence back to the loop
+        tokens[i + 1] = match[2];
       } else {
         chordText = fullNextToken;
         tokens[i + 1] = "";
@@ -223,7 +215,6 @@ function processInlineChords(text) {
 
       let formattedText = chordText;
       if (chordText.length > 0) {
-        // Find the very first visible character to turn purple
         const firstVisibleMatch = chordText.match(/^((?:&nbsp;|\s)*)(\S)/);
         if (firstVisibleMatch) {
           const before = firstVisibleMatch[1];
@@ -442,7 +433,6 @@ function updateView() {
   const romanOn = document.getElementById('showRoman') ? document.getElementById('showRoman').checked : true;
   const englishOn = document.getElementById('showEnglish') ? document.getElementById('showEnglish').checked : true;
 
-  // Toggle class on body to naturally hide purple text highlights when chords are toggled off
   document.body.classList.toggle('chords-disabled', !chordsOn);
 
   const keyContainer = document.getElementById('memberKeyContainer');
@@ -465,7 +455,6 @@ function updateView() {
     if (romanEl) { romanEl.classList.toggle('hidden', !romanOn); romanEl.classList.remove('primary-lyric'); }
     if (englishEl) { englishEl.classList.toggle('hidden', !englishOn); englishEl.classList.remove('primary-lyric'); }
 
-    // Find first visible text line and dynamically pass the formatting style down the chain
     const visibleLines = [hangulEl, romanEl, englishEl].filter(el => el && !el.classList.contains('hidden'));
     if (visibleLines.length > 0) {
       visibleLines[0].classList.add('primary-lyric');
