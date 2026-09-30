@@ -152,6 +152,17 @@ function isChordOnlyText(str) {
   return /^[\(\[\{]?\s*(x\d+\vert{}\d+x\vert{}x\s*\d+\vert{}riff\vert{}repeat\vert{}x2\vert{}x4\vert{}outro\vert{}intro\vert{}solo\vert{}instrumental\vert{}\d+)\s*[\)\]\}]?$/i.test(textWithoutChords);
 }
 
+// Helper to determine string width. Korean/CJK characters are visually wider than english letters.
+function getVisualLength(str) {
+  let len = 0;
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code >= 0x2E80) len += 2; // Weight wide characters to ensure spacing is safe
+    else len += 1;
+  }
+  return len;
+}
+
 function processInlineChords(text) {
   if (!text) return "";
   
@@ -181,38 +192,48 @@ function processInlineChords(text) {
     if (token.startsWith('[') && token.endsWith(']')) {
       const chord = token.slice(1, -1);
       const currentChord = transposeChordName(chord, transposeSteps);
-      let nextToken = tokens[i + 1] || "";
-      let chordText = "";
+      
+      // Grab all text before the *next* chord appears
+      let fullNextToken = tokens[i + 1] || "";
+      
+      // Calculate widths to prevent chord overlapping
+      let pureFullText = fullNextToken.replace(/&nbsp;/g, ' '); 
+      let visualTextLen = getVisualLength(pureFullText);
+      let chordLen = currentChord.length + 0.5; // Adding 0.5ch buffer to the chord width
 
-      if (nextToken) {
-        const match = nextToken.match(/^(\S+)([\s\S]*)$/);
-        if (match) {
-          chordText = match[1];
-          tokens[i + 1] = match[2];
-        } else {
-          tokens[i + 1] = nextToken;
-        }
+      let marginStyle = "";
+      // If the text underneath is SHORTER than the chord above it, it will overlap the NEXT chord.
+      // We inject a margin to dynamically push the next chord out of the way!
+      if (chordLen > visualTextLen) {
+        let diff = (chordLen - visualTextLen).toFixed(2);
+        marginStyle = ` style="margin-right: ${diff}ch;"`;
+      }
+
+      let chordText = "";
+      // Split the text: keep only the first word attached to the chord for highlight/grouping.
+      // Let the rest of the sentence flow normally so it can line-break on mobile screens.
+      const match = fullNextToken.match(/^((?:&nbsp;|\s)*\S+)([\s\S]*)$/);
+      if (match) {
+        chordText = match[1];
+        tokens[i + 1] = match[2]; // Pass the rest of the sentence back to the loop
+      } else {
+        chordText = fullNextToken;
+        tokens[i + 1] = "";
       }
 
       let formattedText = chordText;
       if (chordText.length > 0) {
-        let firstChar = chordText.charAt(0);
-        let restChar = chordText.slice(1);
-        
-        if (chordText.startsWith('&nbsp;')) {
-           firstChar = '&nbsp;';
-           restChar = chordText.slice(6);
+        // Find the very first visible character to turn purple
+        const firstVisibleMatch = chordText.match(/^((?:&nbsp;|\s)*)(\S)/);
+        if (firstVisibleMatch) {
+          const before = firstVisibleMatch[1];
+          const char = firstVisibleMatch[2];
+          const after = chordText.substring(firstVisibleMatch[0].length);
+          formattedText = `${before}<span class="chord-highlight">${char}</span>${after}`;
         }
-
-        formattedText = `<span class="chord-highlight">${firstChar}</span>${restChar}`;
       }
 
-      // Check if this chord has no text attached to it (underscores/empty space) to prevent overlap
-      const pureText = chordText.replace(/&nbsp;/g, ' ').trim();
-      const isEmptySegment = (pureText === "");
-      const segmentClass = isEmptySegment ? 'chord-segment empty-chord-segment' : 'chord-segment';
-
-      result += `<span class="${segmentClass}"><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${formattedText}</span></span>`;
+      result += `<span class="chord-segment"${marginStyle}><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${formattedText}</span></span>`;
     } else {
       result += `<span class="lyric-text">${token}</span>`;
     }
