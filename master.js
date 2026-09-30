@@ -2,7 +2,6 @@
    Master JavaScript File - Chord & Lyrics Renderer
    ========================================================================== */
 
-// Safely ensure songData exists globally without throwing ReferenceErrors
 if (typeof window.songData === 'undefined') {
   window.songData = "";
 }
@@ -168,7 +167,7 @@ function processInlineChords(text) {
   }
 
   let processed = text.replace(/\[([A-G][b#]?[^\]]*)\](_+)/g, function(match, chord, underscores) {
-    return `[${chord}]` + ' '.repeat(underscores.length);
+    return `[${chord}]` + '&nbsp;'.repeat(underscores.length);
   });
   processed = processed.replace(/_/g, '');
 
@@ -197,8 +196,14 @@ function processInlineChords(text) {
 
       let formattedText = chordText;
       if (chordText.length > 0) {
-        const firstChar = chordText.charAt(0);
-        const restChar = chordText.slice(1);
+        let firstChar = chordText.charAt(0);
+        let restChar = chordText.slice(1);
+        
+        if (chordText.startsWith('&nbsp;')) {
+           firstChar = '&nbsp;';
+           restChar = chordText.slice(6);
+        }
+
         formattedText = `<span class="chord-highlight">${firstChar}</span>${restChar}`;
       }
 
@@ -411,6 +416,9 @@ function updateView() {
   const romanOn = document.getElementById('showRoman') ? document.getElementById('showRoman').checked : true;
   const englishOn = document.getElementById('showEnglish') ? document.getElementById('showEnglish').checked : true;
 
+  // Toggle class on body to naturally hide purple text highlights when chords are toggled off
+  document.body.classList.toggle('chords-disabled', !chordsOn);
+
   const keyContainer = document.getElementById('memberKeyContainer');
   const divider = document.querySelector('.control-divider');
   if (keyContainer) keyContainer.classList.toggle('hidden', !memberOn);
@@ -427,13 +435,18 @@ function updateView() {
     const romanEl = block.querySelector('.romanized');
     const englishEl = block.querySelector('.english');
 
-    if (hangulEl) hangulEl.classList.toggle('hidden', !hangulOn);
-    if (romanEl) romanEl.classList.toggle('hidden', !romanOn);
-    if (englishEl) englishEl.classList.toggle('hidden', !englishOn);
+    if (hangulEl) { hangulEl.classList.toggle('hidden', !hangulOn); hangulEl.classList.remove('primary-lyric'); }
+    if (romanEl) { romanEl.classList.toggle('hidden', !romanOn); romanEl.classList.remove('primary-lyric'); }
+    if (englishEl) { englishEl.classList.toggle('hidden', !englishOn); englishEl.classList.remove('primary-lyric'); }
+
+    // Find first visible text line and dynamically pass the formatting style down the chain
+    const visibleLines = [hangulEl, romanEl, englishEl].filter(el => el && !el.classList.contains('hidden'));
+    if (visibleLines.length > 0) {
+      visibleLines[0].classList.add('primary-lyric');
+    }
 
     let chordRowAssigned = false;
-    [hangulEl, romanEl, englishEl].forEach(el => {
-      if (!el || el.classList.contains('hidden')) return;
+    visibleLines.forEach(el => {
       const inlineChords = el.querySelectorAll('.inline-chord');
       if (chordsOn && !chordRowAssigned && inlineChords.length > 0) {
         inlineChords.forEach(c => c.classList.remove('hidden'));
@@ -443,8 +456,8 @@ function updateView() {
       }
     });
 
-    const visibleLines = block.querySelectorAll('.lyric-line:not(.hidden)');
-    block.classList.toggle('hidden', visibleLines.length === 0);
+    const blockVisibleLines = block.querySelectorAll('.lyric-line:not(.hidden)');
+    block.classList.toggle('hidden', blockVisibleLines.length === 0);
 
     const firstVisibleLine = block.querySelector('.lyric-line:not(.hidden)');
     const hasChordsOnTop = firstVisibleLine && chordsOn && firstVisibleLine.querySelectorAll('.inline-chord:not(.hidden)').length > 0;
