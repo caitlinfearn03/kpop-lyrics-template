@@ -207,7 +207,12 @@ function processInlineChords(text) {
         formattedText = `<span class="chord-highlight">${firstChar}</span>${restChar}`;
       }
 
-      result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${formattedText}</span></span>`;
+      // Check if this chord has no text attached to it (underscores/empty space) to prevent overlap
+      const pureText = chordText.replace(/&nbsp;/g, ' ').trim();
+      const isEmptySegment = (pureText === "");
+      const segmentClass = isEmptySegment ? 'chord-segment empty-chord-segment' : 'chord-segment';
+
+      result += `<span class="${segmentClass}"><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${formattedText}</span></span>`;
     } else {
       result += `<span class="lyric-text">${token}</span>`;
     }
