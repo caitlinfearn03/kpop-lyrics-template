@@ -176,6 +176,7 @@ function processInlineChords(text) {
     return `<span class="lyric-text">${text}</span>${trailingExtra ? `<span class="trailing-extra">${trailingExtra}</span>` : ''}`;
   }
 
+  // Convert underscore spacing placeholders directly to non-breaking space HTML entities
   let processed = text.replace(/\[([A-G][b#]?[^\]]*)\](_+)/g, function(match, chord, underscores) {
     return `[${chord}]` + '&nbsp;'.repeat(underscores.length);
   });
@@ -204,6 +205,7 @@ function processInlineChords(text) {
       }
 
       let chordText = "";
+      // Match either HTML entity spaces or regular characters safely
       const match = fullNextToken.match(/^((?:&nbsp;|\s)*\S+)([\s\S]*)$/);
       if (match) {
         chordText = match[1];
