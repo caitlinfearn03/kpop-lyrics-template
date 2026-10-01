@@ -156,7 +156,7 @@ function getVisualLength(str) {
   let len = 0;
   for (let i = 0; i < str.length; i++) {
     const code = str.charCodeAt(i);
-    if (code >= 0x2E80) len += 2;
+    if (code >= 0x2E80) len += 2; // CJK & Korean character weight
     else len += 1;
   }
   return len;
@@ -172,15 +172,12 @@ function processInlineChords(text) {
     text = text.substring(0, text.length - trailingMatch[1].length);
   }
 
-  if (!text.includes('[')) {
-    return `<span class="lyric-text">${text}</span>${trailingExtra ? `<span class="trailing-extra">${trailingExtra}</span>` : ''}`;
-  }
+  // Convert underscore spacing placeholders directly to Unicode non-breaking spaces
+  let processed = text.replace(/_/g, '\u00A0');
 
-  // Convert underscore spacing placeholders directly to non-breaking space HTML entities
-  let processed = text.replace(/\[([A-G][b#]?[^\]]*)\](_+)/g, function(match, chord, underscores) {
-    return `[${chord}]` + '&nbsp;'.repeat(underscores.length);
-  });
-  processed = processed.replace(/_/g, '');
+  if (!text.includes('[')) {
+    return `<span class="lyric-text">${processed}</span>${trailingExtra ? `<span class="trailing-extra">${trailingExtra}</span>` : ''}`;
+  }
 
   let result = '<span class="chord-line-wrapper">';
   const tokens = processed.split(/(\[[^\]]+\])/);
@@ -194,8 +191,24 @@ function processInlineChords(text) {
       const currentChord = transposeChordName(chord, transposeSteps);
       
       let fullNextToken = tokens[i + 1] || "";
-      let pureFullText = fullNextToken.replace(/&nbsp;/g, ' '); 
-      let visualTextLen = getVisualLength(pureFullText);
+      let chordText = "";
+
+      // If the chord is placed directly on an underscore placeholder space
+      if (fullNextToken.startsWith('\u00A0')) {
+        chordText = '\u00A0';
+        tokens[i + 1] = fullNextToken.substring(1);
+      } else {
+        const match = fullNextToken.match(/^(\s*\S+)([\s\S]*)$/);
+        if (match) {
+          chordText = match[1];
+          tokens[i + 1] = match[2];
+        } else {
+          chordText = fullNextToken;
+          tokens[i + 1] = "";
+        }
+      }
+
+      let visualTextLen = getVisualLength(chordText);
       let chordLen = currentChord.length + 0.5;
 
       let marginStyle = "";
@@ -204,20 +217,9 @@ function processInlineChords(text) {
         marginStyle = ` style="margin-right: ${diff}ch;"`;
       }
 
-      let chordText = "";
-      // Match either HTML entity spaces or regular characters safely
-      const match = fullNextToken.match(/^((?:&nbsp;|\s)*\S+)([\s\S]*)$/);
-      if (match) {
-        chordText = match[1];
-        tokens[i + 1] = match[2];
-      } else {
-        chordText = fullNextToken;
-        tokens[i + 1] = "";
-      }
-
       let formattedText = chordText;
       if (chordText.length > 0) {
-        const firstVisibleMatch = chordText.match(/^((?:&nbsp;|\s)*)(\S)/);
+        const firstVisibleMatch = chordText.match(/^(\s*)(\S)/);
         if (firstVisibleMatch) {
           const before = firstVisibleMatch[1];
           const char = firstVisibleMatch[2];
