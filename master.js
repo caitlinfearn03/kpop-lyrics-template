@@ -20,6 +20,7 @@ function initApp() {
     injectLayout();
     buildLyrics();
     updateView();
+    window.addEventListener('resize', fixChordCollisions);
   } else {
     setTimeout(initApp, 50);
   }
@@ -60,6 +61,7 @@ function changeFontSize(amount) {
   document.documentElement.style.setProperty('--base-font-scale', currentFontScale);
   const label = document.getElementById('fontSizeLabel');
   if (label) label.textContent = Math.round(currentFontScale * 100) + '%';
+  fixChordCollisions();
 }
 
 function toggleAutoScroll() {
@@ -143,6 +145,7 @@ function transpose(stepsDelta) {
     const orig = chordEl.getAttribute('data-original-chord');
     if (orig) chordEl.textContent = transposeChordName(orig, transposeSteps);
   });
+  fixChordCollisions();
 }
 
 function isChordOnlyText(str) {
@@ -150,16 +153,6 @@ function isChordOnlyText(str) {
   const textWithoutChords = str.replace(/\[[^\]]*\]/g, '').trim();
   if (textWithoutChords === '') return true;
   return /^[\(\[\{]?\s*(x\d+\vert{}\d+x\vert{}x\s*\d+\vert{}riff\vert{}repeat\vert{}x2\vert{}x4\vert{}outro\vert{}intro\vert{}solo\vert{}instrumental\vert{}\d+)\s*[\)\]\}]?$/i.test(textWithoutChords);
-}
-
-function getVisualLength(str) {
-  let len = 0;
-  for (let i = 0; i < str.length; i++) {
-    const code = str.charCodeAt(i);
-    if (code >= 0x2E80) len += 2; // CJK weight
-    else len += 1;
-  }
-  return len;
 }
 
 function processInlineChords(text) {
@@ -191,21 +184,8 @@ function processInlineChords(text) {
       const currentChord = transposeChordName(chord, transposeSteps);
       
       let fullNextToken = tokens[i + 1] || "";
-      
-      // Calculate visual distance based on the FULL text before the next chord
-      let visualTextLen = getVisualLength(fullNextToken);
-      let chordLen = currentChord.length + 0.5;
-
-      // Only add a margin if the chord literally overhangs into the next chord's space
-      let marginStyle = "";
-      if (chordLen > visualTextLen) {
-        let diff = (chordLen - visualTextLen).toFixed(2);
-        marginStyle = ` style="margin-right: ${diff}ch;"`;
-      }
-
       let chordText = "";
 
-      // Extract the immediate anchor element for the chord highlight
       if (fullNextToken.startsWith('\u00A0')) {
         chordText = '\u00A0';
         tokens[i + 1] = fullNextToken.substring(1);
@@ -231,7 +211,9 @@ function processInlineChords(text) {
         }
       }
 
-      result += `<span class="chord-segment"${marginStyle}><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${formattedText}</span></span>`;
+      // We removed the static CSS margin calculations here.
+      // Layout is completely handled by fixChordCollisions() later.
+      result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${formattedText}</span></span>`;
     } else {
       result += `<span class="lyric-text">${token}</span>`;
     }
@@ -409,6 +391,7 @@ function toggleMemberFilter(emoji) {
   document.querySelectorAll('.line-block').forEach(block => {
     block.style.opacity = (!activeMemberFilter || block.getAttribute('data-member') === activeMemberFilter) ? '1' : '0.35';
   });
+  fixChordCollisions();
 }
 
 function updateMemberColumn(showMember) {
@@ -487,4 +470,48 @@ function updateView() {
   });
 
   updateMemberColumn(memberOn);
+  
+  // Apply visual collision rules after showing/hiding elements
+  fixChordCollisions();
+}
+
+/**
+ * Native JavaScript Collision Fix:
+ * Calculates physical DOM layout pixels and pushes overlapping chords away from each other.
+ */
+function fixChordCollisions() {
+  setTimeout(() => {
+    const lines = document.querySelectorAll('.lyric-line');
+    const minSpacing = 6; // minimum pixels between chords
+
+    // First reset all transforms so we get raw, unmodified DOM positions
+    lines.forEach(line => {
+      const chords = line.querySelectorAll('.inline-chord');
+      chords.forEach(chord => {
+        chord.style.transform = 'none';
+      });
+    });
+
+    // Then measure the real boundaries and push overlapping chords forward
+    lines.forEach(line => {
+      let lastChordRightEdge = -9999;
+      const activeChords = line.querySelectorAll('.inline-chord:not(.hidden)');
+      
+      activeChords.forEach(chord => {
+        const rect = chord.getBoundingClientRect();
+        
+        // If the target spot overlaps the edge of the previous chord
+        if (rect.left < lastChordRightEdge) {
+          const shiftAmount = lastChordRightEdge - rect.left;
+          chord.style.transform = `translateX(${shiftAmount}px)`;
+          
+          // Update the right edge relative to the new shifted position
+          lastChordRightEdge = rect.right + shiftAmount + minSpacing;
+        } else {
+          // No collision, just update the right edge
+          lastChordRightEdge = rect.right + minSpacing;
+        }
+      });
+    });
+  }, 25); // Minor delay ensures CSS font changes paint first
 }
