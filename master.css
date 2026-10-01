@@ -1,285 +1,251 @@
+/* ==========================================================================
+   Master CSS File - Chord & Lyrics Renderer
+   ========================================================================== */
+
 :root {
-  --base-font-scale: 1.0;
+  --base-font-scale: 1;
+  --chord-color: #8b5cf6; /* The purple color from your screenshots */
+  --text-color: #222222;
+  --bg-color: #ffffff;
+  --ui-bg: #f4f4f5;
+  --ui-border: #e4e4e7;
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #ffffff;
-  color: #333333;
-  line-height: 1.6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-color);
+  background-color: var(--bg-color);
   margin: 0;
-  padding: 15px;
-  padding-bottom: 120px;
-  padding-bottom: calc(120px + env(safe-area-inset-bottom));
-  font-size: 16px;
-}
-
-#lyricsContainer {
+  padding: 0 15px 80px 15px; /* Bottom padding for sticky footer */
   font-size: calc(16px * var(--base-font-scale));
 }
 
-#headerContainer h1.song-title {
-  margin-bottom: 2px;
-  color: #8e44ad;
-  font-size: 2em;
+/* ==========================================================================
+   Typography & Headers
+   ========================================================================== */
+.song-title {
+  margin: 20px 0 5px 0;
+  font-size: 1.8em;
+  font-weight: 800;
 }
 
-#headerContainer h2.song-artist {
-  margin-top: 0;
-  margin-bottom: 8px;
-  color: #555555;
+.song-artist {
+  margin: 0 0 20px 0;
   font-size: 1.2em;
-  font-weight: normal;
-}
-
-.top-control-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  margin: 4px auto 20px auto;
-  padding: 10px 15px;
-  max-width: 800px;
-  background: rgba(142, 68, 173, 0.12);
-  border-radius: 16px;
-}
-
-.member-key-container {
-  margin-bottom: 0;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-}
-
-.member-key-item {
-  padding: 4px 10px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  user-select: none;
-  transition: 0.2s;
-  font-size: 0.9em;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.member-key-item.active {
-  background: #8e44ad;
-  color: #ffffff;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
-
-.control-divider {
-  width: 80%;
-  border: none;
-  border-top: 1px solid rgba(142, 68, 173, 0.25);
-  margin: 6px 0;
-}
-
-.song-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  align-items: center;
+  font-weight: 400;
+  color: #555;
 }
 
 .section-header {
-  margin-top: 15px;
-  margin-bottom: 8px;
+  font-size: 1.2em;
   font-weight: bold;
-  font-size: 1.1em;
-  color: #555555;
-  border-bottom: 2px solid #eeeeee;
-  padding-bottom: 4px;
+  color: #333;
+  margin: 30px 0 10px 0;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+/* ==========================================================================
+   Layout: Lyric Blocks & Spacing
+   ========================================================================== */
+#lyricsContainer {
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .line-block {
   display: flex;
-  margin-bottom: 8px;
-  transition: opacity 0.3s;
+  flex-direction: row;
+  margin-bottom: 28px; /* SPACE BETWEEN BLOCKS (Your requested red line gap) */
+  position: relative;
+  transition: opacity 0.2s ease;
+}
+
+.line-block.has-top-chords {
+  padding-top: 1.4em; /* Preserves vertical headroom so chords don't overlap previous blocks */
 }
 
 .member-col {
   width: 45px;
   flex-shrink: 0;
-  font-weight: bold;
-  color: #8e44ad;
-  padding-top: 0;
-  line-height: 1.4;
+  font-size: 1.1em;
+  padding-top: 2px; /* Aligns emoji slightly down with the text */
 }
 
 .content-col {
-  flex-grow: 1;
   display: flex;
   flex-direction: column;
-  max-width: 100%;
+  gap: 2px; /* SPACE BETWEEN LINES (Pulls Hangul, Roman, English closer) */
+  flex-grow: 1;
 }
 
+/* ==========================================================================
+   Lyrics Styling
+   ========================================================================== */
 .lyric-line {
-  line-height: 2.4; 
-  word-break: normal;
-  hyphens: none;
+  position: relative;
+  line-height: 1.25; /* Keeps line height tight */
+  margin-bottom: 2px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-body.chords-disabled .lyric-line {
-  line-height: 1.6;
+/* Dynamic line styling based on your screenshots */
+.primary-lyric {
+  font-weight: 700;
+  color: #111;
 }
 
-.lyric-line.primary-lyric {
-  font-weight: bold !important;
-  font-style: normal !important;
-  font-size: 1em !important;
+.english {
+  font-style: italic;
+  color: #444;
 }
 
-.lyric-line.hangul {
+.chord-only-line {
+  font-weight: bold;
+  color: #555;
+}
+
+.trailing-extra {
+  font-size: 0.9em;
+  color: #666;
+  margin-left: 8px;
   font-weight: bold;
 }
 
-.lyric-line.romanized {
-  font-weight: normal;
-  font-style: normal;
-}
-
-.lyric-line.english {
-  font-size: 0.9em;
-  font-style: italic;
-}
-
-.chord-line-wrapper {
-  display: inline;
-}
-
+/* ==========================================================================
+   Chords & Highlights
+   ========================================================================== */
 .chord-segment {
   position: relative;
-  display: inline-block; /* Bounds the word directly below its chord so they wrap lines together */
+  display: inline-block;
 }
 
 .inline-chord {
   position: absolute;
-  bottom: 95%; /* Perfect height cleanly above the word */
+  bottom: 100%; /* Pushes the chord directly above the word */
   left: 0;
-  color: #8e44ad;
-  font-weight: bold;
-  font-size: 0.85em;
+  color: var(--chord-color);
+  font-weight: 800;
+  font-size: 0.9em;
+  font-family: sans-serif;
+  z-index: 10;
   white-space: nowrap;
-  line-height: 1;
-}
-
-.lyric-text {
-  display: inline;
-  letter-spacing: normal;
-  white-space: pre-wrap;
-  word-break: normal;
-  hyphens: none;
+  
+  /* Smoothly glides when JavaScript fixes a collision */
+  transition: transform 0.1s ease-out; 
 }
 
 .chord-highlight {
-  color: #8e44ad;
-  font-weight: bold;
+  color: var(--chord-color);
+  font-weight: 800;
 }
 
-body.chords-disabled .chord-highlight {
-  color: inherit !important;
-  font-weight: inherit !important;
+/* ==========================================================================
+   UI Controls & Toolbar
+   ========================================================================== */
+.top-control-panel {
+  max-width: 800px;
+  margin: 0 auto 20px auto;
+  padding: 15px;
+  background-color: var(--ui-bg);
+  border-radius: 8px;
 }
 
-/* Specific overrides so sections defined by 'C:' display smartly */
-.line-block[data-chord-only="true"] .chord-segment {
-  margin-right: 12px !important;
-}
-.line-block[data-chord-only="true"] .inline-chord {
-  position: static;
-  display: inline-block;
-  margin-bottom: 0;
-}
-.line-block[data-chord-only="true"] .lyric-text {
-  display: none;
+.member-key-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
-.trailing-extra {
-  display: inline-block;
-  align-self: flex-end;
-  margin-left: 8px;
-  margin-bottom: 3px;
+.member-key-item {
+  cursor: pointer;
+  padding: 5px 10px;
+  background: white;
+  border: 1px solid var(--ui-border);
+  border-radius: 20px;
+  font-size: 0.9em;
+  transition: all 0.2s;
+  user-select: none;
 }
 
-.toggle-pill, button {
+.member-key-item.active {
+  background: var(--chord-color);
+  color: white;
+  border-color: var(--chord-color);
+}
+
+.control-divider {
+  border: none;
+  border-top: 1px solid var(--ui-border);
+  margin: 15px 0;
+}
+
+.song-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.9em;
+}
+
+.toggle-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.6);
-  color: #333333;
-  padding: 5px 12px;
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid var(--ui-border);
   border-radius: 20px;
-  font-size: 14px;
-  border: none;
-  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
 }
 
-.toggle-pill input[type="checkbox"] {
-  accent-color: #8e44ad;
-  width: 1.1em;
-  height: 1.1em;
+.toggle-pill input {
   cursor: pointer;
-  margin-right: 2px;
-  vertical-align: middle;
 }
 
 .toggle-pill button {
-  border-radius: 12px;
-  background: #8e44ad;
-  color: #ffffff;
-  padding: 2px 8px;
+  background: none;
+  border: none;
+  font-size: 1.1em;
   font-weight: bold;
-  font-size: 14px;
   cursor: pointer;
+  color: #333;
+  padding: 0 4px;
 }
 
-/* --- Sticky Footer Floating Toolbar --- */
+/* Sticky Footer */
 .sticky-footer-toolbar {
   position: fixed;
-  bottom: 15px;
-  bottom: calc(15px + env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 30px);
-  max-width: 500px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(142, 68, 173, 0.2);
-  border-radius: 30px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid var(--ui-border);
+  padding: 10px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
   justify-content: center;
-  align-items: center;
-  padding: 8px 15px;
-  z-index: 99999;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-}
-
-.sticky-footer-toolbar .toggle-pill {
-  background: rgba(0, 0, 0, 0.06);
+  gap: 15px;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  z-index: 100;
 }
 
 #scrollBtn {
-  background: #8e44ad !important;
-  color: #ffffff !important;
   font-weight: bold;
-  padding: 6px 18px;
-  border-radius: 20px;
-  cursor: pointer;
+  background-color: #222;
+  color: white;
+  border: none;
 }
 
 #scrollBtn.active-stop {
-  background: #e74c3c !important;
-  color: #ffffff !important;
+  background-color: #ef4444; /* Red color when scrolling */
 }
 
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
 .hidden {
   display: none !important;
 }
