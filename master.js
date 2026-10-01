@@ -156,7 +156,7 @@ function getVisualLength(str) {
   let len = 0;
   for (let i = 0; i < str.length; i++) {
     const code = str.charCodeAt(i);
-    if (code >= 0x2E80) len += 2; // CJK & Korean character weight
+    if (code >= 0x2E80) len += 2; // CJK weight
     else len += 1;
   }
   return len;
@@ -172,7 +172,7 @@ function processInlineChords(text) {
     text = text.substring(0, text.length - trailingMatch[1].length);
   }
 
-  // Convert underscore spacing placeholders directly to Unicode non-breaking spaces
+  // Convert underscore placeholders directly to Unicode non-breaking spaces
   let processed = text.replace(/_/g, '\u00A0');
 
   if (!text.includes('[')) {
@@ -191,9 +191,21 @@ function processInlineChords(text) {
       const currentChord = transposeChordName(chord, transposeSteps);
       
       let fullNextToken = tokens[i + 1] || "";
+      
+      // Calculate visual distance based on the FULL text before the next chord
+      let visualTextLen = getVisualLength(fullNextToken);
+      let chordLen = currentChord.length + 0.5;
+
+      // Only add a margin if the chord literally overhangs into the next chord's space
+      let marginStyle = "";
+      if (chordLen > visualTextLen) {
+        let diff = (chordLen - visualTextLen).toFixed(2);
+        marginStyle = ` style="margin-right: ${diff}ch;"`;
+      }
+
       let chordText = "";
 
-      // If the chord is placed directly on an underscore placeholder space
+      // Extract the immediate anchor element for the chord highlight
       if (fullNextToken.startsWith('\u00A0')) {
         chordText = '\u00A0';
         tokens[i + 1] = fullNextToken.substring(1);
@@ -206,15 +218,6 @@ function processInlineChords(text) {
           chordText = fullNextToken;
           tokens[i + 1] = "";
         }
-      }
-
-      let visualTextLen = getVisualLength(chordText);
-      let chordLen = currentChord.length + 0.5;
-
-      let marginStyle = "";
-      if (chordLen > visualTextLen) {
-        let diff = (chordLen - visualTextLen).toFixed(2);
-        marginStyle = ` style="margin-right: ${diff}ch;"`;
       }
 
       let formattedText = chordText;
