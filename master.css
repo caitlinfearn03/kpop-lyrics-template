@@ -113,7 +113,8 @@ body {
   position: relative;
 }
 
-body:not(.chords-disabled) .chord-segment {
+/* Only add top-padding headroom if the chord inside is actually visible */
+body:not(.chords-disabled) .chord-segment:has(.inline-chord:not(.hidden)) {
   display: inline-block;
   padding-top: 1.5em; 
   vertical-align: baseline; 
