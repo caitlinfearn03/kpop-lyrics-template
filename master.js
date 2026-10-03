@@ -165,7 +165,6 @@ function processInlineChords(text) {
     text = text.substring(0, text.length - trailingMatch[1].length);
   }
 
-  // Convert underscore placeholders directly to Unicode non-breaking spaces
   let processed = text.replace(/_/g, '\u00A0');
 
   if (!text.includes('[')) {
@@ -211,8 +210,6 @@ function processInlineChords(text) {
         }
       }
 
-      // We removed the static CSS margin calculations here.
-      // Layout is completely handled by fixChordCollisions() later.
       result += `<span class="chord-segment"><span class="inline-chord" data-original-chord="${chord}">${currentChord}</span><span class="lyric-text">${formattedText}</span></span>`;
     } else {
       result += `<span class="lyric-text">${token}</span>`;
@@ -256,14 +253,12 @@ function buildLyrics() {
   if (title) {
     const h1 = document.createElement('h1');
     h1.className = 'song-title';
-    h1.style.textAlign = 'center';
     h1.textContent = title;
     headerContainer.appendChild(h1);
   }
   if (artist) {
     const h2 = document.createElement('h2');
     h2.className = 'song-artist';
-    h2.style.textAlign = 'center';
     h2.textContent = artist;
     headerContainer.appendChild(h2);
   }
@@ -463,28 +458,23 @@ function updateView() {
 
     const blockVisibleLines = block.querySelectorAll('.lyric-line:not(.hidden)');
     block.classList.toggle('hidden', blockVisibleLines.length === 0);
-
-    const firstVisibleLine = block.querySelector('.lyric-line:not(.hidden)');
-    const hasChordsOnTop = firstVisibleLine && chordsOn && firstVisibleLine.querySelectorAll('.inline-chord:not(.hidden)').length > 0;
-    block.classList.toggle('has-top-chords', Boolean(hasChordsOnTop));
   });
 
   updateMemberColumn(memberOn);
-  
-  // Apply visual collision rules after showing/hiding elements
   fixChordCollisions();
 }
 
 /**
- * Native JavaScript Collision Fix:
- * Calculates physical DOM layout pixels and pushes overlapping chords away from each other.
+ * Updated Collision Logic: 
+ * Detects if a chord has wrapped to a new line visually (rect.top variance)
+ * and resets the spacing logic so chords display correctly on smaller screens.
  */
 function fixChordCollisions() {
   setTimeout(() => {
     const lines = document.querySelectorAll('.lyric-line');
-    const minSpacing = 6; // minimum pixels between chords
+    const minSpacing = 6; 
 
-    // First reset all transforms so we get raw, unmodified DOM positions
+    // Reset transforms
     lines.forEach(line => {
       const chords = line.querySelectorAll('.inline-chord');
       chords.forEach(chord => {
@@ -492,26 +482,29 @@ function fixChordCollisions() {
       });
     });
 
-    // Then measure the real boundaries and push overlapping chords forward
+    // Measure boundaries and push overlapping chords
     lines.forEach(line => {
       let lastChordRightEdge = -9999;
+      let lastChordTop = -9999;
       const activeChords = line.querySelectorAll('.inline-chord:not(.hidden)');
       
       activeChords.forEach(chord => {
         const rect = chord.getBoundingClientRect();
         
-        // If the target spot overlaps the edge of the previous chord
+        // Wrap detection: if the chord dropped to a new visual line, reset the right edge constraint
+        if (Math.abs(rect.top - lastChordTop) > 12) {
+          lastChordRightEdge = -9999;
+          lastChordTop = rect.top;
+        }
+        
         if (rect.left < lastChordRightEdge) {
           const shiftAmount = lastChordRightEdge - rect.left;
           chord.style.transform = `translateX(${shiftAmount}px)`;
-          
-          // Update the right edge relative to the new shifted position
           lastChordRightEdge = rect.right + shiftAmount + minSpacing;
         } else {
-          // No collision, just update the right edge
           lastChordRightEdge = rect.right + minSpacing;
         }
       });
     });
-  }, 25); // Minor delay ensures CSS font changes paint first
+  }, 25);
 }
