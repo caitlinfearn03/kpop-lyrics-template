@@ -4,7 +4,7 @@
 
 :root {
   --base-font-scale: 1;
-  --chord-color: #8b5cf6;
+  --chord-color: #C81CDE; /* Updated to requested purple */
   --text-color: #222222;
   --bg-color: #ffffff;
   --ui-bg: #f4f4f5;
@@ -27,7 +27,7 @@ body {
   margin: 20px 0 5px 0;
   font-size: 1.8em;
   font-weight: 800;
-  color: var(--chord-color); /* Updated to purple */
+  color: var(--chord-color);
   text-align: center;
 }
 
@@ -43,7 +43,7 @@ body {
   font-size: 1.2em;
   font-weight: bold;
   color: #333;
-  margin: 30px 0 15px 0; /* Slightly increased bottom margin */
+  margin: 30px 0 15px 0;
   padding-bottom: 5px;
   border-bottom: 1px solid var(--ui-border);
 }
@@ -99,12 +99,6 @@ body {
   color: #444;
 }
 
-.chord-only-line {
-  font-weight: bold;
-  color: #555;
-  min-height: 1.5em; /* Ensures standalone lines don't collapse */
-}
-
 .trailing-extra {
   font-size: 0.9em;
   color: #666;
@@ -113,14 +107,12 @@ body {
 }
 
 /* ==========================================================================
-   Chords & Highlights
+   Chords & Highlights (Normal Lines)
    ========================================================================== */
 .chord-segment {
   position: relative;
 }
 
-/* When chords are ON, transform the segment to inline-block to create physical 
-   headroom in the document flow, preventing wrapping/header collisions. */
 body:not(.chords-disabled) .chord-segment {
   display: inline-block;
   padding-top: 1.5em; 
@@ -131,7 +123,6 @@ body:not(.chords-disabled) .chord-segment {
   display: none;
 }
 
-/* Position chords absolutely inside the new padding headroom */
 body:not(.chords-disabled) .inline-chord {
   display: inline;
   position: absolute;
@@ -152,6 +143,36 @@ body:not(.chords-disabled) .inline-chord {
 }
 
 /* ==========================================================================
+   Standalone Chord Lines (C: Lines) - Mobile Overlap Fix
+   ========================================================================== */
+.chord-only-line {
+  display: flex;
+  flex-wrap: wrap; /* Allows chords to wrap naturally to the next line on mobile */
+  gap: 15px; /* Spaces chords natively without needing underscores */
+  min-height: 1.5em;
+  align-items: center;
+  font-weight: bold;
+}
+
+/* Hide the placeholder spaces/underscores so flex gap takes over */
+.chord-only-line .lyric-text {
+  display: none;
+}
+
+/* Remove the top-padding headroom since there are no lyrics below them */
+body:not(.chords-disabled) .chord-only-line .chord-segment {
+  padding-top: 0;
+  display: flex;
+}
+
+/* Force standalone chords to be relative so they don't stack on each other */
+body:not(.chords-disabled) .chord-only-line .inline-chord {
+  position: relative;
+  display: inline-block;
+  transform: none !important; /* Overrides JS collision shifting on standalone lines */
+}
+
+/* ==========================================================================
    UI Controls & Toolbar
    ========================================================================== */
 .top-control-panel {
@@ -165,7 +186,7 @@ body:not(.chords-disabled) .inline-chord {
 .member-key-container {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center; /* Centered */
+  justify-content: center;
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -196,7 +217,7 @@ body:not(.chords-disabled) .inline-chord {
 .song-toolbar {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center; /* Centered */
+  justify-content: center;
   gap: 10px;
   align-items: center;
   font-size: 0.9em;
@@ -214,7 +235,6 @@ body:not(.chords-disabled) .inline-chord {
   user-select: none;
 }
 
-/* Tick boxes are now purple */
 .toggle-pill input[type="checkbox"] {
   cursor: pointer;
   accent-color: var(--chord-color); 
