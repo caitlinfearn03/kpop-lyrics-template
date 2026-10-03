@@ -4,7 +4,7 @@
 
 :root {
   --base-font-scale: 1;
-  --chord-color: #8b5cf6; /* The purple color from your screenshots */
+  --chord-color: #8b5cf6;
   --text-color: #222222;
   --bg-color: #ffffff;
   --ui-bg: #f4f4f5;
@@ -16,7 +16,7 @@ body {
   color: var(--text-color);
   background-color: var(--bg-color);
   margin: 0;
-  padding: 0 15px 80px 15px; /* Bottom padding for sticky footer */
+  padding: 0 15px 80px 15px;
   font-size: calc(16px * var(--base-font-scale));
 }
 
@@ -27,6 +27,8 @@ body {
   margin: 20px 0 5px 0;
   font-size: 1.8em;
   font-weight: 800;
+  color: var(--chord-color); /* Updated to purple */
+  text-align: center;
 }
 
 .song-artist {
@@ -34,13 +36,14 @@ body {
   font-size: 1.2em;
   font-weight: 400;
   color: #555;
+  text-align: center;
 }
 
 .section-header {
   font-size: 1.2em;
   font-weight: bold;
   color: #333;
-  margin: 30px 0 10px 0;
+  margin: 30px 0 15px 0; /* Slightly increased bottom margin */
   padding-bottom: 5px;
   border-bottom: 1px solid var(--ui-border);
 }
@@ -56,26 +59,22 @@ body {
 .line-block {
   display: flex;
   flex-direction: row;
-  margin-bottom: 28px; /* SPACE BETWEEN BLOCKS (Your requested red line gap) */
+  margin-bottom: 28px;
   position: relative;
   transition: opacity 0.2s ease;
-}
-
-.line-block.has-top-chords {
-  padding-top: 1.4em; /* Preserves vertical headroom so chords don't overlap previous blocks */
 }
 
 .member-col {
   width: 45px;
   flex-shrink: 0;
   font-size: 1.1em;
-  padding-top: 2px; /* Aligns emoji slightly down with the text */
+  padding-top: 2px;
 }
 
 .content-col {
   display: flex;
   flex-direction: column;
-  gap: 2px; /* SPACE BETWEEN LINES (Pulls Hangul, Roman, English closer) */
+  gap: 2px; 
   flex-grow: 1;
 }
 
@@ -84,13 +83,12 @@ body {
    ========================================================================== */
 .lyric-line {
   position: relative;
-  line-height: 1.25; /* Keeps line height tight */
+  line-height: 1.25; 
   margin-bottom: 2px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-/* Dynamic line styling based on your screenshots */
 .primary-lyric {
   font-weight: 700;
   color: #111;
@@ -104,6 +102,7 @@ body {
 .chord-only-line {
   font-weight: bold;
   color: #555;
+  min-height: 1.5em; /* Ensures standalone lines don't collapse */
 }
 
 .trailing-extra {
@@ -118,12 +117,25 @@ body {
    ========================================================================== */
 .chord-segment {
   position: relative;
+}
+
+/* When chords are ON, transform the segment to inline-block to create physical 
+   headroom in the document flow, preventing wrapping/header collisions. */
+body:not(.chords-disabled) .chord-segment {
   display: inline-block;
+  padding-top: 1.5em; 
+  vertical-align: baseline; 
 }
 
 .inline-chord {
+  display: none;
+}
+
+/* Position chords absolutely inside the new padding headroom */
+body:not(.chords-disabled) .inline-chord {
+  display: inline;
   position: absolute;
-  bottom: 100%; /* Pushes the chord directly above the word */
+  top: 0; 
   left: 0;
   color: var(--chord-color);
   font-weight: 800;
@@ -131,8 +143,6 @@ body {
   font-family: sans-serif;
   z-index: 10;
   white-space: nowrap;
-  
-  /* Smoothly glides when JavaScript fixes a collision */
   transition: transform 0.1s ease-out; 
 }
 
@@ -155,6 +165,7 @@ body {
 .member-key-container {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center; /* Centered */
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -185,6 +196,7 @@ body {
 .song-toolbar {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center; /* Centered */
   gap: 10px;
   align-items: center;
   font-size: 0.9em;
@@ -202,8 +214,10 @@ body {
   user-select: none;
 }
 
-.toggle-pill input {
+/* Tick boxes are now purple */
+.toggle-pill input[type="checkbox"] {
   cursor: pointer;
+  accent-color: var(--chord-color); 
 }
 
 .toggle-pill button {
@@ -240,7 +254,7 @@ body {
 }
 
 #scrollBtn.active-stop {
-  background-color: #ef4444; /* Red color when scrolling */
+  background-color: #ef4444; 
 }
 
 /* ==========================================================================
